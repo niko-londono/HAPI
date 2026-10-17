@@ -527,84 +527,70 @@ function App() {
             </div>
           </div>
 
-          {/* TARJETAS KPI */}
-          <div className="kpi-grid">
-            <div className="kpi-card realized">
-              <div className="kpi-title">
-                <span>Realizada</span>
-                <span className={`kpi-badge ${cls(periodSummary.rl)}`}>
-                  {pc((periodSummary.rl / periodSummary.base) * 100)}
-                </span>
-              </div>
-              <div className={`kpi-val ${cls(periodSummary.rl)}`}>
+          {/* TARJETAS KPI (FORMATO MAESTRO) */}
+          <div className="cards-grid">
+            <div className="card-kpi">
+              <span className="card-kpi-label">Realizada</span>
+              <b className={`card-kpi-val ${cls(periodSummary.rl)}`}>
                 {sg(periodSummary.rl)}
-              </div>
-              <div className="kpi-subtext">Ventas contra costo promedio</div>
+              </b>
+              <span className={`card-kpi-pct ${cls(periodSummary.rl)}`}>
+                {pc((periodSummary.rl / periodSummary.base) * 100)}
+              </span>
             </div>
 
-            <div className="kpi-card unrealized">
-              <div className="kpi-title">
-                <span>No realizada</span>
-                <span className={`kpi-badge ${cls(periodSummary.ur)}`}>
-                  {pc((periodSummary.ur / periodSummary.base) * 100)}
-                </span>
-              </div>
-              <div className={`kpi-val ${cls(periodSummary.ur)}`}>
+            <div className="card-kpi">
+              <span className="card-kpi-label">No realizada</span>
+              <b className={`card-kpi-val ${cls(periodSummary.ur)}`}>
                 {sg(periodSummary.ur)}
-              </div>
-              <div className="kpi-subtext">Variación en cartera activa</div>
+              </b>
+              <span className={`card-kpi-pct ${cls(periodSummary.ur)}`}>
+                {pc((periodSummary.ur / periodSummary.base) * 100)}
+              </span>
             </div>
 
-            <div className="kpi-card capgain">
-              <div className="kpi-title">
-                <span>Realizada + No Realizada</span>
-                <span className={`kpi-badge ${cls(periodSummary.capitalGain)}`}>
-                  {pc((periodSummary.capitalGain / periodSummary.base) * 100)}
-                </span>
-              </div>
-              <div className={`kpi-val ${cls(periodSummary.capitalGain)}`}>
+            <div className="card-kpi">
+              <span className="card-kpi-label">Realizada + no realizada</span>
+              <b className={`card-kpi-val ${cls(periodSummary.capitalGain)}`}>
                 {sg(periodSummary.capitalGain)}
-              </div>
-              <div className="kpi-subtext">Ganancia neta por activos</div>
+              </b>
+              <span className={`card-kpi-pct ${cls(periodSummary.capitalGain)}`}>
+                {pc((periodSummary.capitalGain / periodSummary.base) * 100)}
+              </span>
             </div>
 
-            <div className="kpi-card dividends">
-              <div className="kpi-title">
-                <span>Dividendos y Cargos</span>
-                <span className={`kpi-badge ${cls(periodSummary.dv)}`}>
-                  {pc((periodSummary.dv / periodSummary.base) * 100)}
-                </span>
-              </div>
-              <div className={`kpi-val ${cls(periodSummary.dv)}`}>
+            <div className="card-kpi">
+              <span className="card-kpi-label">Dividendos netos y cargos</span>
+              <b className={`card-kpi-val ${cls(periodSummary.dv)}`}>
                 {sg(periodSummary.dv)}
-              </div>
-              <div className="kpi-subtext">Pagos de dividendos e intereses</div>
+              </b>
+              <span className={`card-kpi-pct ${cls(periodSummary.dv)}`}>
+                {pc((periodSummary.dv / periodSummary.base) * 100)}
+              </span>
             </div>
 
-            <div className="kpi-card total">
-              <div className="kpi-title">
-                <span>Rendimiento Total</span>
-                <span className={`kpi-badge ${cls(periodSummary.total)}`}>
-                  {pc((periodSummary.total / periodSummary.base) * 100)}
-                </span>
-              </div>
-              <div className={`kpi-val ${cls(periodSummary.total)}`}>
+            <div className="card-kpi">
+              <span className="card-kpi-label">Rendimiento total</span>
+              <b className={`card-kpi-val ${cls(periodSummary.total)}`}>
                 {sg(periodSummary.total)}
-              </div>
-              <div className="kpi-subtext">Retorno total sobre capital prom.</div>
+              </b>
+              <span className={`card-kpi-pct ${cls(periodSummary.total)}`}>
+                {pc((periodSummary.total / periodSummary.base) * 100)}
+              </span>
             </div>
           </div>
 
-          {/* BANNER DE RESUMEN INFORMATIVO */}
-          <div className="period-summary-banner">
-            <div>
-              Depositado: <b>{f(periodSummary.deposited)}</b> &nbsp;·&nbsp;
-              Retirado / Bakkt: <b>{f(periodSummary.withdrawn)}</b> &nbsp;·&nbsp;
-              Valor al cierre: <b>{f(periodSummary.closingValue)}</b>
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
-              * Los depósitos no cuentan como ganancia; los % se calculan sobre el capital promedio ponderado del período.
-            </div>
+          {/* TEXTO DE RESUMEN DEL PERÍODO */}
+          <div className="info-subtext">
+            Depositado {f(periodSummary.deposited)} · Retirado {f(periodSummary.withdrawn)} · Valor al cierre {f(periodSummary.closingValue)} · Los depósitos no cuentan como ganancia; los % son sobre el capital promedio del periodo.
+          </div>
+
+          {/* LEYENDA DEL GRÁFICO */}
+          <div className="chart-legend-row">
+            <span style={{ color: 'var(--sky)' }}>■</span> Realizada &nbsp;
+            <span style={{ color: 'var(--orange)' }}>■</span> No realizada &nbsp;
+            <span style={{ color: 'var(--gain)' }}>—</span> Total acumulado &nbsp;
+            <span style={{ color: 'var(--amber)' }}>○</span> Depósitos
           </div>
 
           {/* GRÁFICO INTERACTIVO */}
@@ -614,19 +600,8 @@ function App() {
           <div className="section-wrapper">
             <div className="section-header">
               <h2 className="section-title">
-                Posiciones en Cartera · Precios al 30 sep 2026
+                Posiciones y activos · precios al 30 sep 2026
               </h2>
-              <div className="filter-search-bar">
-                <div className="search-input-wrapper">
-                  <span className="search-icon"><Icons.Search /></span>
-                  <input
-                    type="text"
-                    placeholder="Buscar activo o ticker..."
-                    value={posSearch}
-                    onChange={e => setPosSearch(e.target.value)}
-                  />
-                </div>
-              </div>
             </div>
 
             <div className="table-card">
@@ -636,39 +611,23 @@ function App() {
                     <tr>
                       <th>Activo</th>
                       <th>Cantidad</th>
-                      <th>Costo Prom.</th>
-                      <th>Precio Actual</th>
-                      <th>Valor de Mercado</th>
-                      <th>% Cartera</th>
-                      <th>No Realizada</th>
-                      <th>Realizada Total</th>
+                      <th>Costo prom.</th>
+                      <th>Precio</th>
+                      <th>Valor</th>
+                      <th>% cartera</th>
+                      <th>No realizada</th>
+                      <th>Realizada</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredPositions.map(r => (
                       <tr key={r.y}>
-                        <td>
-                          <div className="ticker-cell">
-                            <span className="ticker-symbol">{r.y}</span>
-                            <span className="ticker-name">{r.name}</span>
-                          </div>
-                        </td>
+                        <td title={r.name}>{r.y}</td>
                         <td>{r.q > 0 ? r.q.toFixed(5) : '—'}</td>
                         <td>{r.q > 0 ? f(r.avgCost) : '—'}</td>
                         <td>{r.q > 0 ? f(r.price) : '—'}</td>
-                        <td className="font-mono" style={{ fontWeight: '600' }}>
-                          {r.q > 0 ? f(r.v) : '—'}
-                        </td>
-                        <td>
-                          {r.q > 0 ? (
-                            <div>
-                              <span>{r.portfolioPct.toFixed(1)}%</span>
-                              <div className="portfolio-weight-bar">
-                                <div className="weight-fill" style={{ width: `${Math.min(100, r.portfolioPct)}%` }}></div>
-                              </div>
-                            </div>
-                          ) : '—'}
-                        </td>
+                        <td>{r.q > 0 ? f(r.v) : '—'}</td>
+                        <td>{r.q > 0 ? (r.portfolioPct).toFixed(1) + '%' : '—'}</td>
                         <td className={r.q > 0 ? cls(r.u) : 'neutral'}>
                           {r.q > 0 ? `${sg(r.u)} (${pc(r.unrealizedPct)})` : '—'}
                         </td>
@@ -679,26 +638,14 @@ function App() {
                     ))}
                     {/* FILA DE EFECTIVO / FDIC */}
                     <tr className="row-cash">
-                      <td>
-                        <div className="ticker-cell">
-                          <span className="ticker-symbol" style={{ borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}>FDIC CASH</span>
-                          <span className="ticker-name">Efectivo en cuenta / Cobertura FDIC</span>
-                        </div>
-                      </td>
-                      <td>—</td>
-                      <td>—</td>
-                      <td>—</td>
-                      <td className="font-mono" style={{ fontWeight: '700', color: 'var(--accent-primary)' }}>
-                        {f(portfolioData.cashFdic)}
-                      </td>
-                      <td>
-                        <span>{portfolioData.cashPct.toFixed(1)}%</span>
-                        <div className="portfolio-weight-bar">
-                          <div className="weight-fill" style={{ width: `${Math.min(100, portfolioData.cashPct)}%`, background: 'var(--accent-primary)' }}></div>
-                        </div>
-                      </td>
-                      <td>—</td>
-                      <td>—</td>
+                      <td>Efectivo / FDIC</td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td>{f(portfolioData.cashFdic)}</td>
+                      <td>{portfolioData.cashPct.toFixed(1)}%</td>
+                      <td></td>
+                      <td></td>
                     </tr>
                   </tbody>
                 </table>
@@ -709,7 +656,7 @@ function App() {
           {/* TABLA DE RENDIMIENTO MENSUAL */}
           <div className="section-wrapper">
             <div className="section-header">
-              <h2 className="section-title">Detalle de Rendimiento Mensual</h2>
+              <h2 className="section-title">Rendimiento mensual</h2>
             </div>
             <div className="table-card">
               <div className="table-scroll">
@@ -717,26 +664,26 @@ function App() {
                   <thead>
                     <tr>
                       <th>Mes</th>
-                      <th>Valor Cierre</th>
+                      <th>Valor cierre</th>
                       <th>Depósitos</th>
                       <th>Retiros</th>
                       <th>Realizada</th>
-                      <th>No Realizada</th>
+                      <th>No realizada</th>
                       <th>Dividendos</th>
-                      <th>Rendimiento Total</th>
+                      <th>Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedMonths.slice().reverse().map(r => (
                       <tr key={r.m}>
-                        <td style={{ fontWeight: '600' }}>{lab(r.m)}</td>
-                        <td className="font-mono">{f(r.v)}</td>
-                        <td className="font-mono">{r.d > 0 ? f(r.d) : '—'}</td>
-                        <td className="font-mono">{r.w > 0 ? f(r.w) : '—'}</td>
+                        <td style={{ fontWeight: '500' }}>{lab(r.m)}</td>
+                        <td>{f(r.v)}</td>
+                        <td>{f(r.d)}</td>
+                        <td>{f(r.w)}</td>
                         <td className={cls(r.rl)}>{sg(r.rl)}</td>
                         <td className={cls(r.ur)}>{sg(r.ur)}</td>
                         <td className={cls(r.dv)}>{sg(r.dv)}</td>
-                        <td className={`font-mono ${cls(r.pl)}`} style={{ fontWeight: '700' }}>
+                        <td className={cls(r.pl)} style={{ fontWeight: '600' }}>
                           {sg(r.pl)}
                         </td>
                       </tr>
@@ -751,31 +698,8 @@ function App() {
           <div className="section-wrapper">
             <div className="section-header">
               <h2 className="section-title">
-                Operaciones del Período ({filteredOperations.length})
+                Operaciones del periodo
               </h2>
-              <div className="filter-search-bar">
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  {['ALL', 'B', 'S', 'X'].map(typeKey => (
-                    <button
-                      key={typeKey}
-                      className={`period-btn ${opsType === typeKey ? 'active' : ''}`}
-                      onClick={() => setOpsType(typeKey)}
-                      style={{ padding: '4px 10px', fontSize: '12px' }}
-                    >
-                      {typeKey === 'ALL' ? 'Todas' : typeKey === 'B' ? 'Compras' : typeKey === 'S' ? 'Ventas' : 'Splits'}
-                    </button>
-                  ))}
-                </div>
-                <div className="search-input-wrapper">
-                  <span className="search-icon"><Icons.Search /></span>
-                  <input
-                    type="text"
-                    placeholder="Filtrar por ticker..."
-                    value={opsSearch}
-                    onChange={e => setOpsSearch(e.target.value)}
-                  />
-                </div>
-              </div>
             </div>
 
             <div className="table-card">
@@ -784,37 +708,26 @@ function App() {
                   <thead>
                     <tr>
                       <th>Fecha</th>
-                      <th>Tipo</th>
+                      <th>Operación</th>
                       <th>Activo</th>
                       <th>Cantidad</th>
-                      <th>Monto (USD)</th>
-                      <th>Ganancia Realizada</th>
+                      <th>Monto</th>
+                      <th>Ganancia realizada</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredOperations.map((o, idx) => {
-                      const typeBadge = o.t === 'B' ? 'buy' : o.t === 'S' ? 'sell' : 'split';
-                      const typeLabel = o.t === 'B' ? 'Compra' : o.t === 'S' ? 'Venta' : 'Split';
-                      return (
-                        <tr key={idx}>
-                          <td className="font-mono">{dt(o.d)}</td>
-                          <td>
-                            <span className={`badge-op ${typeBadge}`}>{typeLabel}</span>
-                          </td>
-                          <td>
-                            <span className="ticker-symbol">{o.y}</span>
-                            <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginLeft: '6px' }}>
-                              {portfolioData.N[o.y] || ''}
-                            </span>
-                          </td>
-                          <td className="font-mono">{o.q}</td>
-                          <td className="font-mono">{o.a ? f(o.a) : '—'}</td>
-                          <td className={o.g != null ? cls(o.g) : 'neutral'}>
-                            {o.g != null ? sg(o.g) : '—'}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {filteredOperations.map((o, idx) => (
+                      <tr key={idx}>
+                        <td>{dt(o.d)}</td>
+                        <td>{o.t === 'B' ? 'Compra' : o.t === 'S' ? 'Venta' : 'Split'}</td>
+                        <td title={portfolioData.N[o.y] || ''}>{o.y}</td>
+                        <td>{o.q}</td>
+                        <td>{o.a ? f(o.a) : '—'}</td>
+                        <td className={o.g == null ? '' : cls(o.g)}>
+                          {o.g == null ? '—' : sg(o.g)}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -835,13 +748,13 @@ function App() {
                 disabled={isUpdatingBtc}
               >
                 <Icons.Refresh spinning={isUpdatingBtc} />
-                <span>{isUpdatingBtc ? 'Actualizando...' : 'Actualizar Cotización BTC'}</span>
+                <span>{isUpdatingBtc ? 'Actualizando…' : 'Actualizar precio'}</span>
               </button>
               <div className="crypto-status-text">{btcStatusMsg}</div>
             </div>
 
             <div className="manual-spot-input-group">
-              <span>Precio manual BTC:</span>
+              <span>Precio manual de BTC (si falla la consulta):</span>
               <input
                 type="number"
                 step="any"
@@ -854,58 +767,50 @@ function App() {
           </div>
 
           {/* TARJETAS KPI DE CRYPTO */}
-          <div className="kpi-grid">
-            <div className="kpi-card">
-              <div className="kpi-title">Invertido Neto (Bakkt)</div>
-              <div className="kpi-val">{f(cryptoData.totalInvested)}</div>
-              <div className="kpi-subtext">Total traspasos desde Apex</div>
+          <div className="cards-grid">
+            <div className="card-kpi">
+              <span className="card-kpi-label">Invertido neto</span>
+              <b className="card-kpi-val">{f(cryptoData.totalInvested)}</b>
             </div>
 
-            <div className="kpi-card">
-              <div className="kpi-title">BTC Estimado</div>
-              <div className="kpi-val" style={{ color: 'var(--amber)' }}>
-                {cryptoData.totalBtc.toFixed(6)} <span style={{ fontSize: '16px' }}>₿</span>
-              </div>
-              <div className="kpi-subtext">Acumulación estimada</div>
+            <div className="card-kpi">
+              <span className="card-kpi-label">BTC estimado</span>
+              <b className="card-kpi-val" style={{ color: 'var(--amber)' }}>
+                {cryptoData.totalBtc.toFixed(6)}
+              </b>
             </div>
 
-            <div className="kpi-card">
-              <div className="kpi-title">Precio Promedio Compra</div>
-              <div className="kpi-val">
+            <div className="card-kpi">
+              <span className="card-kpi-label">Precio promedio</span>
+              <b className="card-kpi-val">
                 {cryptoData.avgPrice > 0 ? f(cryptoData.avgPrice) : '—'}
-              </div>
-              <div className="kpi-subtext">Costo medio por BTC</div>
+              </b>
             </div>
 
-            <div className="kpi-card">
-              <div className="kpi-title">Precio Actual BTC</div>
-              <div className="kpi-val" style={{ color: 'var(--accent-primary)' }}>
+            <div className="card-kpi">
+              <span className="card-kpi-label">Precio actual</span>
+              <b className="card-kpi-val" style={{ color: 'var(--sky)' }}>
                 {btcStorage.spot || manualSpotInput ? f(parseFloat(manualSpotInput) || btcStorage.spot) : '—'}
-              </div>
-              <div className="kpi-subtext">Cotización de mercado</div>
+              </b>
             </div>
 
-            <div className="kpi-card">
-              <div className="kpi-title">Valor Actual</div>
-              <div className="kpi-val">
+            <div className="card-kpi">
+              <span className="card-kpi-label">Valor actual</span>
+              <b className="card-kpi-val">
                 {cryptoData.currentVal != null ? f(cryptoData.currentVal) : '—'}
-              </div>
-              <div className="kpi-subtext">Valuación estimada en USD</div>
+              </b>
             </div>
 
-            <div className="kpi-card total">
-              <div className="kpi-title">
-                <span>Ganancia / Pérdida</span>
-                {cryptoData.roiPct != null && (
-                  <span className={`kpi-badge ${cls(cryptoData.profitLoss)}`}>
-                    {pc(cryptoData.roiPct)}
-                  </span>
-                )}
-              </div>
-              <div className={`kpi-val ${cls(cryptoData.profitLoss)}`}>
+            <div className="card-kpi">
+              <span className="card-kpi-label">Ganancia / pérdida</span>
+              <b className={`card-kpi-val ${cls(cryptoData.profitLoss)}`}>
                 {cryptoData.profitLoss != null ? sg(cryptoData.profitLoss) : '—'}
-              </div>
-              <div className="kpi-subtext">Rendimiento global en Bakkt</div>
+              </b>
+              {cryptoData.roiPct != null && (
+                <span className={`card-kpi-pct ${cls(cryptoData.profitLoss)}`}>
+                  {pc(cryptoData.roiPct)}
+                </span>
+              )}
             </div>
           </div>
 
