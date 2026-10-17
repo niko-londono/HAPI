@@ -8,6 +8,7 @@
   --gain: #4fbf8b; --gain-bg: rgba(79,191,139,.1);
   --loss: #f0736a; --loss-bg: rgba(240,115,106,.1);
   --amber: #d8a93b;
+  --cum: #f6b48f; --cum-text: #f6b48f; /* naranja pastel del acumulado */
   --grid: rgba(255,255,255,.06); --axis: rgba(255,255,255,.26); --tip-bg: #08090b;
   --radius: 10px; --radius-sm: 6px;
   --t: .15s ease;
@@ -20,6 +21,7 @@
   --gain: #17834f; --gain-bg: rgba(23,131,79,.08);
   --loss: #c4372c; --loss-bg: rgba(196,55,44,.07);
   --amber: #a67a12;
+  --cum: #f0a070; --cum-text: #c96f3b;
   --grid: rgba(0,0,0,.06); --axis: rgba(0,0,0,.28);
 }
 
@@ -89,7 +91,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
 .legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .legend-chip { width: 9px; height: 9px; border-radius: 2px; }
 .legend-chip.realized { background: var(--accent); } .legend-chip.unrealized { background: var(--accent-soft); }
-.legend-chip.cumulative { width: 14px; height: 2px; background: var(--text-main); }
+.legend-chip.cumulative { width: 14px; height: 2px; background: var(--cum); }
 .legend-chip.deposit { border-radius: 50%; border: 1.5px solid var(--text-dim); }
 .legend-chip.lot-gain { border-radius: 50%; background: var(--gain); }
 .legend-chip.lot-loss { border-radius: 50%; background: var(--loss); }
@@ -101,13 +103,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); out
 .chart-guide { stroke: var(--axis); stroke-dasharray: 3 3; }
 .chart-axis { fill: var(--text-dim); font-size: 11px; }
 .chart-xlabel { fill: var(--text-muted); font-size: 11px; }
-.chart-value-label { fill: var(--text-main); font-size: 12px; font-weight: 600; }
+.chart-value-label { fill: var(--cum-text); font-size: 12px; font-weight: 600; }
 .chart-line-label { fill: var(--text-main); font-size: 11.5px; font-weight: 600; }
 .chart-line-label.muted { fill: var(--text-muted); font-weight: 500; }
 .bar-realized { fill: var(--accent); } .bar-unrealized { fill: var(--accent-soft); }
-.area-cum { fill: var(--text-main); opacity: .05; }
-.line-cum { fill: none; stroke: var(--text-main); stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; }
-.dot-cum { fill: var(--text-main); stroke: var(--surface); stroke-width: 2; }
+.area-cum { fill: var(--cum); opacity: .1; }
+.line-cum { fill: none; stroke: var(--cum); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+.dot-cum { fill: var(--cum); stroke: var(--surface); stroke-width: 2; }
 .deposit-dot { fill: none; stroke: var(--text-dim); stroke-width: 1.25; }
 .price-line { stroke: var(--text-main); stroke-width: 1.5; }
 .avg-line { stroke: var(--text-dim); stroke-width: 1.5; stroke-dasharray: 5 4; }

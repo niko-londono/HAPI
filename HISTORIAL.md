@@ -31,7 +31,7 @@ Webapp estática en español con el resumen de inversiones de Nicolás, calculad
 - Bolsa: barra de periodo → KPI (tarjeta principal + 4 mosaicos) → `InteractiveChart` → posiciones (buscador) → rendimiento mensual → operaciones (filtro tipo + buscador).
 - Crypto: barra de precio (corte / en vivo / manual / volver al corte) → KPI (valor de mercado + costo promedio, variación del día o lotes en ganancia, mejor lote, patrimonio total) → `CryptoLotsChart` → tabla de lotes → conciliación de traspasos → nota.
 - `useWidth()`: hook con ResizeObserver para que los SVG se dibujen al ancho real.
-- `InteractiveChart`: 2 paneles (barras mensuales realizada/no realizada + línea y área del acumulado), franja de depósitos, ticks "redondos", tooltip que cambia de lado.
+- `InteractiveChart`: un solo panel con eje compartido: barras mensuales realizada/no realizada y encima la línea + área del acumulado (naranja pastel, `--cum`); franja de depósitos debajo, ticks "redondos", tooltip que cambia de lado.
 - `CryptoLotsChart`: eje X por fecha, cada lote en su costo por BTC (costo ÷ cantidad, incluye comisiones), tamaño = monto, color ganancia/pérdida; líneas de precio BTC y costo promedio.
 
 ### MAESTRO.css (mapa)
@@ -64,6 +64,7 @@ Crypto (corte 17 oct 2026): 0.013244 BTC · costo $1,006.74 · valor $1,076.39 �
 - Posible mejora: historial del valor crypto cuando haya varios cortes.
 
 ## 7. Registro de cambios
+- **2026-10-17 · v5.1 · Gráfico de bolsa unificado.** Barras y acumulado superpuestos en un solo panel con el mismo eje; línea, puntos y área del acumulado en naranja pastel (`--cum`, `--cum-text`). Archivos: `MAESTRO.jsx`, `MAESTRO.css`, `HISTORIAL.md`.
 - **2026-10-17 · v5 · Crypto con lotes reales + UI minimalista.** Crypto deja de estimar BTC con Yahoo y usa los 8 lotes de la foto Share Lots (`CRYPTO` en `MAESTRO.js`, `computeCrypto`, `fetchBtcSpot`; se eliminaron `computeCryptoRows` y la tabla editable). Nueva vista: precio de corte/en vivo/manual, KPIs, gráfico de costo por lote, tabla de lotes y conciliación con los traspasos de la bolsa. UI rehecha más sobria (Inter única, casi monocroma, sin pastillas de color). Favicon `favicon.svg`, título corto "HAPI · Portafolio" (y "Bolsa · HAPI" / "Crypto · HAPI" según la vista), React fijado a 18.3.1. Archivos tocados: todos los `MAESTRO.*`, `index.html`, `favicon.svg`, `HISTORIAL.md`, `README.md`.
 - **2026-10-17 · v4 · Rediseño de layout y gráfico.** CSS reescrito (tokens más sobrios, tabs subrayadas, periodos segmentados, tabla con primera columna fija, soporte claro/oscuro real). KPI: tarjeta principal "Rendimiento total" con depositado/retirado/valor al cierre + 4 mosaicos; se eliminó la leyenda duplicada. Posiciones con ticker+nombre y barra de peso; operaciones con insignias; se activaron los buscadores y el filtro por tipo que ya existían en el estado. Gráfico: 2 paneles, ejes con ticks redondos, rejilla visible en modo claro, ancho real sin escalado, etiquetas de mes sin solaparse, tooltip sin desbordes, franja de depósitos proporcional. Archivos tocados: `MAESTRO.css`, `MAESTRO.jsx`, `HISTORIAL.md`. Sin cambios en `MAESTRO.js` ni `index.html`.
 - **v3 · Versión modular.** Separación en `index.html` + `MAESTRO.js/.jsx/.css` (React + Babel en el navegador).

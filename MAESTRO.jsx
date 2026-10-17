@@ -95,13 +95,12 @@ function InteractiveChart({ monthsData, f, lab }) {
   const RP = 14;
   const step = (W - L - RP) / n;
   const bw = Math.min(28, Math.max(6, step * 0.5));
-  const TOP = 10;
-  const hA = compact ? 150 : 190;
-  const GAP = 34;
-  const hB = compact ? 120 : 150;
-  const BOT = 28;
-  const topB = TOP + hA + GAP;
-  const H = topB + hB + BOT;
+  const TOP = 22;
+  const hP = compact ? 240 : 300;
+  const DEP = 24; // franja de depósitos bajo el área del gráfico
+  const BOT = 26;
+  const depY = TOP + hP + DEP / 2;
+  const H = TOP + hP + DEP + BOT;
 
   let cum = 0;
   const cumulative = monthsData.map(r => (cum += r.pl));
@@ -116,15 +115,15 @@ function InteractiveChart({ monthsData, f, lab }) {
     });
   });
   const flat = stacks.flat();
-  const tA = niceTicks(Math.min(0, ...flat.map(s => Math.min(s.y0, s.y1))), Math.max(0, ...flat.map(s => Math.max(s.y0, s.y1))), compact ? 3 : 4);
-  const tB = niceTicks(Math.min(0, ...cumulative), Math.max(0, ...cumulative), 3);
-  const yA = v => TOP + hA * (1 - (v - tA.min) / (tA.max - tA.min));
-  const yB = v => topB + hB * (1 - (v - tB.min) / (tB.max - tB.min));
+  // Barras y acumulado comparten el mismo eje (mismas unidades en USD)
+  const values = flat.flatMap(s => [s.y0, s.y1]).concat(cumulative);
+  const tk = niceTicks(Math.min(0, ...values), Math.max(0, ...values), compact ? 4 : 5);
+  const y = v => TOP + hP * (1 - (v - tk.min) / (tk.max - tk.min));
   const xC = i => L + step * (i + 0.5);
   const maxDep = Math.max(1, ...monthsData.map(r => r.d));
   const labelEvery = Math.max(1, Math.ceil(46 / step));
-  const linePts = cumulative.map((v, i) => `${xC(i)},${yB(v)}`).join(' ');
-  const areaPath = `M${xC(0)},${yB(0)} ${cumulative.map((v, i) => `L${xC(i)},${yB(v)}`).join(' ')} L${xC(n - 1)},${yB(0)} Z`;
+  const linePts = cumulative.map((v, i) => `${xC(i)},${y(v)}`).join(' ');
+  const areaPath = `M${xC(0)},${y(0)} ${cumulative.map((v, i) => `L${xC(i)},${y(v)}`).join(' ')} L${xC(n - 1)},${y(0)} Z`;
   const last = cumulative[n - 1];
   const d = tip != null ? monthsData[tip] : null;
 
@@ -142,20 +141,14 @@ function InteractiveChart({ monthsData, f, lab }) {
 
       <div className="svg-chart-wrapper" ref={wrapRef} onMouseLeave={() => setTip(null)}>
         <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Rendimiento mensual y acumulado">
-          {tA.ticks.map(v => (
-            <g key={`a${v}`}>
-              <line className={v === 0 ? 'chart-zero' : 'chart-grid'} x1={L} x2={W - RP} y1={yA(v)} y2={yA(v)} />
-              <text className="chart-axis" x={L - 8} y={yA(v) + 4} textAnchor="end">{axisLabel(v)}</text>
-            </g>
-          ))}
-          {tB.ticks.map(v => (
-            <g key={`b${v}`}>
-              <line className={v === 0 ? 'chart-zero' : 'chart-grid'} x1={L} x2={W - RP} y1={yB(v)} y2={yB(v)} />
-              <text className="chart-axis" x={L - 8} y={yB(v) + 4} textAnchor="end">{axisLabel(v)}</text>
+          {tk.ticks.map(v => (
+            <g key={v}>
+              <line className={v === 0 ? 'chart-zero' : 'chart-grid'} x1={L} x2={W - RP} y1={y(v)} y2={y(v)} />
+              <text className="chart-axis" x={L - 8} y={y(v) + 4} textAnchor="end">{axisLabel(v)}</text>
             </g>
           ))}
 
-          {tip != null && <line className="chart-guide" x1={xC(tip)} x2={xC(tip)} y1={TOP} y2={topB + hB} />}
+          {tip != null && <line className="chart-guide" x1={xC(tip)} x2={xC(tip)} y1={TOP} y2={TOP + hP} />}
 
           {stacks.map((segs, i) => segs.map(s => (
             Math.abs(s.y1 - s.y0) < 1e-9 ? null : (
@@ -163,9 +156,9 @@ function InteractiveChart({ monthsData, f, lab }) {
                 key={`${i}-${s.kind}`}
                 className={`bar-${s.kind}`}
                 x={xC(i) - bw / 2}
-                y={Math.min(yA(s.y0), yA(s.y1))}
+                y={Math.min(y(s.y0), y(s.y1))}
                 width={bw}
-                height={Math.max(1, Math.abs(yA(s.y0) - yA(s.y1)))}
+                height={Math.max(1, Math.abs(y(s.y0) - y(s.y1)))}
                 rx="2"
                 opacity={tip == null || tip === i ? 1 : 0.4}
               />
@@ -173,7 +166,7 @@ function InteractiveChart({ monthsData, f, lab }) {
           )))}
 
           {monthsData.map((r, i) => r.d > 0 && (
-            <circle key={`dep${i}`} className="deposit-dot" cx={xC(i)} cy={TOP + hA + GAP / 2} r={2.5 + 3.5 * Math.sqrt(r.d / maxDep)}>
+            <circle key={`dep${i}`} className="deposit-dot" cx={xC(i)} cy={depY} r={2.5 + 3.5 * Math.sqrt(r.d / maxDep)}>
               <title>{`Depósito de ${f(r.d)}`}</title>
             </circle>
           ))}
@@ -181,9 +174,9 @@ function InteractiveChart({ monthsData, f, lab }) {
           <path className="area-cum" d={areaPath} />
           <polyline className="line-cum" points={linePts} />
           {cumulative.map((v, i) => (
-            <circle key={`pt${i}`} className="dot-cum" cx={xC(i)} cy={yB(v)} r={tip === i ? 4.5 : 2.5} />
+            <circle key={`pt${i}`} className="dot-cum" cx={xC(i)} cy={y(v)} r={tip === i ? 5 : 3.5} />
           ))}
-          <text className="chart-value-label" x={xC(n - 1)} y={yB(last) + (last >= 0 ? -10 : 18)} textAnchor="end">{f(last)}</text>
+          <text className="chart-value-label" x={xC(n - 1)} y={y(last) + (last >= 0 ? -12 : 20)} textAnchor="end">{f(last)}</text>
 
           {monthsData.map((r, i) => (n - 1 - i) % labelEvery === 0 && (
             <text key={`lb${i}`} className="chart-xlabel" x={xC(i)} y={H - 8} textAnchor="middle">{lab(r.m)}</text>
@@ -195,7 +188,7 @@ function InteractiveChart({ monthsData, f, lab }) {
               x={L + step * i}
               y={TOP}
               width={step}
-              height={topB + hB - TOP}
+              height={hP + DEP}
               fill="transparent"
               onMouseMove={() => setTip(i)}
               onClick={() => setTip(i)}
