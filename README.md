@@ -51,11 +51,17 @@ El proyecto está organizado en **3 archivos maestros** desacoplados, limpios y 
 
 ## 🚀 Cómo Ejecutar y Desplegar
 
+### En Producción (GitHub Pages)
+El repositorio cuenta con el flujo automatizado `.github/workflows/deploy.yml` y el archivo `.nojekyll`:
+1. En GitHub, ve a **Settings** → **Pages**.
+2. En **Build and deployment** > **Source**, selecciona **GitHub Actions**.
+3. Cada `push` a la rama `main` desplegará el portafolio automáticamente en `https://niko-londono.github.io/HAPI/`.
+
 ### En Producción (Vercel)
-Este repositorio está listo para desplegarse como sitio estático en **Vercel** (`portafolio-finanzas`). No requiere proceso de compilación (`build command: none`), ya que el navegador compila `MAESTRO.jsx` en tiempo de ejecución.
+También compatible con **Vercel** (`portafolio-finanzas`) como sitio estático sin comando de compilación (`build command: none`), ya que el navegador compila `MAESTRO.jsx` en tiempo de ejecución.
 
 ### En Local
-Debido a que `MAESTRO.jsx` es cargado por Babel en el navegador, para visualizarlo localmente utiliza cualquier servidor HTTP estático (para evitar bloqueos CORS que aplican los navegadores sobre `file:///`):
+Debido a que `MAESTRO.jsx` es interpretado por Babel en el navegador, para visualizarlo localmente utiliza cualquier servidor HTTP estático (para evitar bloqueos CORS locales de `file:///`):
 
 ```bash
 # Opción 1: Con npx serve
