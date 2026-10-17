@@ -87,9 +87,38 @@
     ['2026-08-11', 404]
   ];
 
+  // Portafolio crypto (Bakkt) según la foto "Share Lots" de la app de cálculo (ver HAPI_crypto.md).
+  // summary = fila resumen de la foto.
+  // lots = [fecha_lote, cantidad, costo_unitario, costo_total, valor_corte, ganancia_corte, ganancia_pct_corte, fecha_traspaso_bolsa]
+  const CRYPTO = {
+    asset: 'BTC-USD',
+    cutDate: '2026-10-17',
+    price: 81276.05,
+    dayPct: -0.28,
+    dayUsd: -2.97,
+    summary: { qty: 0.013244, cost: 1006.74, mv: 1076.39, gain: 69.65, gainPct: 6.92 },
+    lots: [
+      ['2025-11-17', 0.000217, 91751.53, 19.91, 17.64, -2.27, -11.42, '2025-11-18'],
+      ['2025-11-19', 0.00111, 91423.11, 101.48, 90.22, -11.26, -11.1, '2025-11-19'],
+      ['2025-12-17', 0.002313, 86461.43, 201.16, 187.99, -13.16, -6.54, '2025-12-17'],
+      ['2026-01-08', 0.001778, 90529.72, 162.57, 144.51, -18.06, -11.11, '2026-01-08'],
+      ['2026-01-31', 0.000667, 81207.99, 54.71, 54.21, -0.49, -0.9, '2026-02-02'],
+      ['2026-02-02', 0.000289, 78404.92, 23.89, 23.49, -0.4, -1.68, '2026-02-03'],
+      ['2026-04-16', 0.000576, 74704.65, 43.0, 46.78, 3.78, 8.8, '2026-04-16'],
+      ['2026-08-11', 0.006294, 63557.0, 400.03, 511.55, 111.52, 27.88, '2026-08-11']
+    ]
+  };
+
   // --- FORMATEADORES ---
 
   const MN = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  // 'YYYY-MM-DD' -> '11 ago 2026'
+  const fd = d => {
+    if (!d) return '';
+    const [y, m, day] = d.split('-');
+    return `${parseInt(day, 10)} ${MN[parseInt(m, 10) - 1]} ${y}`;
+  };
 
   const lab = m => {
     if (!m) return '';
@@ -291,56 +320,61 @@
 
   // --- MOTOR DE CÁLCULO DE CRYPTO ---
 
-  function computeCryptoRows(history, spotPrice, overrides) {
-    const H0 = history || null;
-    const ov = overrides || {};
+  // Valora los lotes de la foto. Sin spot usa los valores del corte; con spot revalúa cantidad × precio.
+  function computeCrypto(spotPrice) {
+    const live = spotPrice != null && spotPrice > 0;
+    const price = live ? spotPrice : CRYPTO.price;
 
-    const findPriceOnDate = d => {
-      if (!H0 || !H0.length) return null;
-      const match = H0.find(x => x[0] >= d);
-      return match ? match[1] : H0[H0.length - 1][1];
-    };
-
-    const rows = X.map(([d, a], index) => {
-      const historicalPrice = findPriceOnDate(d);
-      const manualPrice = ov[index] != null && !isNaN(ov[index]) ? ov[index] : null;
-      const effectivePrice = manualPrice != null ? manualPrice : historicalPrice;
-      const estimatedBtc = effectivePrice && effectivePrice > 0 ? a / effectivePrice : 0;
-
-      return {
-        index,
-        date: d,
-        amount: a,
-        historicalPrice,
-        manualPrice,
-        effectivePrice,
-        estimatedBtc
-      };
+    // En el corte se usan las cifras tal cual de la foto (evita diferencias de redondeo)
+    const lots = CRYPTO.lots.map(([date, qty, unit, cost, mvCut, gainCut, pctCut, transferDate]) => {
+      const mv = live ? qty * price : mvCut;
+      const gain = live ? mv - cost : gainCut;
+      // effUnit = costo ÷ cantidad (incluye comisiones; unit es el costo/acción que muestra la foto)
+      return { date, qty, unit, effUnit: cost / qty, cost, mv, gain, gainPct: live ? (gain / cost) * 100 : pctCut, transferDate };
     });
 
-    const validRows = rows.filter(r => r.effectivePrice && r.effectivePrice > 0);
-    const totalInvested = validRows.reduce((t, r) => t + r.amount, 0);
-    const totalBtc = validRows.reduce((t, r) => t + r.estimatedBtc, 0);
-    const avgPrice = totalBtc > 0 ? totalInvested / totalBtc : 0;
-    const currentVal = spotPrice != null && spotPrice > 0 ? totalBtc * spotPrice : null;
-    const profitLoss = currentVal != null ? currentVal - totalInvested : null;
-    const roiPct = profitLoss != null && totalInvested > 0 ? (profitLoss / totalInvested) * 100 : null;
+    const S = CRYPTO.summary;
+    const mv = live ? S.qty * price : S.mv;
+    const gain = live ? mv - S.cost : S.gain;
+
+    // Conciliación: traspasos de la bolsa (X) contra el costo del lote que financiaron
+    const transfers = X.map(([date, amount]) => {
+      const lot = lots.find(l => l.transferDate === date) || null;
+      return { date, amount, lot, diff: lot ? amount - lot.cost : null };
+    });
+    const withdrawn = X.filter(x => x[1] > 0).reduce((t, x) => t + x[1], 0);
+    const returned = -X.filter(x => x[1] < 0).reduce((t, x) => t + x[1], 0);
+    const matched = transfers.filter(t => t.lot);
 
     return {
-      rows,
-      totalInvested,
-      totalBtc,
-      avgPrice,
-      currentVal,
-      profitLoss,
-      roiPct
+      live,
+      price,
+      cutDate: CRYPTO.cutDate,
+      cutPrice: CRYPTO.price,
+      dayPct: CRYPTO.dayPct,
+      dayUsd: CRYPTO.dayUsd,
+      qty: S.qty,
+      cost: S.cost,
+      mv,
+      gain,
+      gainPct: live ? (gain / S.cost) * 100 : S.gainPct,
+      avgCost: S.cost / S.qty,
+      lots,
+      winners: lots.filter(l => l.gain > 0).length,
+      best: lots.reduce((b, l) => (l.gainPct > b.gainPct ? l : b), lots[0]),
+      transfers,
+      withdrawn,
+      returned,
+      matchedWithdrawn: matched.reduce((t, x) => t + x.amount, 0),
+      matchedCost: matched.reduce((t, x) => t + x.lot.cost, 0),
+      unmatched: transfers.filter(t => !t.lot && t.amount > 0).reduce((t, x) => t + x.amount, 0)
     };
   }
 
-  // --- CONSULTA DE PRECIOS BTC VIA YAHOO FINANCE & PROXIES CORS ---
+  // --- CONSULTA DEL PRECIO BTC VIA YAHOO FINANCE & PROXIES CORS ---
 
-  async function fetchBtcData() {
-    const queryUrl = encodeURIComponent('https://query2.finance.yahoo.com/v8/finance/chart/BTC-USD?range=2y&interval=1d');
+  async function fetchBtcSpot() {
+    const queryUrl = encodeURIComponent('https://query2.finance.yahoo.com/v8/finance/chart/BTC-USD?range=5d&interval=1d');
     const proxies = [
       'https://api.allorigins.win/raw?url=',
       'https://corsproxy.io/?'
@@ -353,29 +387,14 @@
         const response = await fetch(proxy + queryUrl);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        const result = data.chart.result[0];
-        const quotes = result.indicators.quote[0].close;
-        const timestamps = result.timestamp;
-
-        const history = timestamps
-          .map((ts, idx) => [
-            new Date(ts * 1000).toISOString().slice(0, 10),
-            quotes[idx]
-          ])
-          .filter(item => item[1] != null && !isNaN(item[1]));
-
-        const spot = result.meta.regularMarketPrice;
+        const spot = data.chart.result[0].meta.regularMarketPrice;
+        if (!(spot > 0)) throw new Error('Respuesta sin precio');
         const timestampStr = new Date().toLocaleString('es-ES', {
           dateStyle: 'medium',
           timeStyle: 'short'
         });
 
-        return {
-          history,
-          spot,
-          timestamp: timestampStr,
-          success: true
-        };
+        return { spot, timestamp: timestampStr };
       } catch (err) {
         lastError = err;
       }
@@ -386,34 +405,26 @@
 
   // --- PERSISTENCIA EN LOCALSTORAGE ---
 
+  // Precio BTC elegido por el usuario (en vivo o manual). null = usar el precio del corte.
   function loadBtcStorage() {
     try {
-      const stored = localStorage.getItem('btc');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return {
-          history: parsed.h || null,
-          spot: parsed.s || null,
-          overrides: parsed.o || {},
-          timestamp: parsed.t || ''
-        };
+      const parsed = JSON.parse(localStorage.getItem('btc') || 'null');
+      if (parsed && parsed.s > 0) {
+        return { spot: parsed.s, timestamp: parsed.t || '', source: parsed.src || 'live' };
       }
     } catch (e) {
       console.warn('Error leyendo localStorage btc:', e);
     }
-    return { history: null, spot: null, overrides: {}, timestamp: '' };
+    return { spot: null, timestamp: '', source: 'cut' };
   }
 
   function saveBtcStorage(state) {
     try {
-      const current = loadBtcStorage();
-      const payload = {
-        h: state.history !== undefined ? state.history : current.history,
-        s: state.spot !== undefined ? state.spot : current.spot,
-        o: state.overrides !== undefined ? state.overrides : current.overrides,
-        t: state.timestamp !== undefined ? state.timestamp : current.timestamp
-      };
-      localStorage.setItem('btc', JSON.stringify(payload));
+      if (!state || !(state.spot > 0)) {
+        localStorage.removeItem('btc');
+        return;
+      }
+      localStorage.setItem('btc', JSON.stringify({ s: state.spot, t: state.timestamp || '', src: state.source }));
     } catch (e) {
       console.warn('Error guardando en localStorage btc:', e);
     }
@@ -425,7 +436,9 @@
     N,
     PR,
     X,
+    CRYPTO,
     lab,
+    fd,
     f,
     sg,
     pc,
@@ -433,8 +446,8 @@
     dt,
     computePortfolioData,
     getPeriodSummary,
-    computeCryptoRows,
-    fetchBtcData,
+    computeCrypto,
+    fetchBtcSpot,
     loadBtcStorage,
     saveBtcStorage
   };

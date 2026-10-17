@@ -15,9 +15,9 @@ El proyecto está organizado en **3 archivos maestros** desacoplados, limpios y 
    - Funciones utilitarias de formateo monetario, porcentual y fechas.
 
 2. **`MAESTRO.css`** *(Sistema de Diseño y Estilos)*:
-   - Paleta de colores Fintech con modo oscuro por defecto y alternador de modo claro.
-   - Tipografía moderna cargada desde Google Fonts: *Outfit* (títulos, métricas y cifras), *Inter* (interfaz y lectura) y *JetBrains Mono* (tickers y montos numéricos).
-   - Estilo glassmorphism, micro-animaciones, badges semánticos de ganancia/pérdida, barras visuales de asignación de cartera y diseño 100% responsivo para móviles y escritorios.
+   - Estilo minimalista casi monocromo, modo oscuro por defecto y modo claro.
+   - Tipografía única *Inter* con cifras tabulares.
+   - Verde/rojo solo para ganancia/pérdida; diseño responsivo para móvil y escritorio.
 
 3. **`MAESTRO.jsx`** *(Interfaz y Componentes React 18)*:
    - Desarrollado con Hooks (`useState`, `useMemo`, `useEffect`, `useCallback`, `useRef`).
@@ -29,10 +29,10 @@ El proyecto está organizado en **3 archivos maestros** desacoplados, limpios y 
      - *Rendimiento mensual*: balance cronológico de depósitos, retiros y retornos.
      - *Operaciones*: filtro por tipo de orden (Compras, Ventas, Splits) y búsqueda por ticker.
    - **Módulo Crypto (Bakkt)**:
-     - Botón de sincronización con Yahoo Finance con indicador de estado y spinner interactivo.
-     - Entrada manual de precio BTC.
-     - Resumen KPI (invertido neto, BTC acumulado, costo promedio, valor actual, ganancia/pérdida).
-     - Tabla editable de traspasos con guardado automático en `localStorage`.
+     - Lotes BTC reales tomados de la foto "Share Lots" (ver `HAPI_crypto.md`), con valor, ganancia y costo promedio.
+     - Precio del corte por defecto; opción de precio en vivo (Yahoo Finance) o manual para revaluar.
+     - Gráfico del costo por BTC de cada lote frente al precio actual y al costo promedio.
+     - Conciliación de los traspasos "Journal to BAKKT" de la bolsa con cada lote.
 
 4. **`index.html`** *(Punto de Entrada)*:
    - Carga las fuentes, `MAESTRO.css`, las librerías CDN de React 18 y Babel Standalone para transpilar el JSX en caliente, enlazando `MAESTRO.js` y `MAESTRO.jsx`.
