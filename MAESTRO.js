@@ -1,0 +1,441 @@
+/**
+ * MAESTRO.js
+ * Motor de datos, cálculos financieros y lógica de negocio para el Portafolio HAPI (Bolsa y Crypto).
+ */
+
+(function (root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    define([], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    module.exports = factory();
+  } else {
+    root.HapiEngine = factory();
+  }
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  // --- DATOS MAESTROS ---
+
+  // Valores mensuales de estados de cuenta Apex/HAPI:
+  // [mes, valor_cierre, depositos, retiros_bakkt, dividendos_y_cargos]
+  const D = [
+    ['2025-06', 294.4,  288.98,  0,     0.29],
+    ['2025-07', 491.26, 188,     0,     0.29],
+    ['2025-08', 519.03, 0,       0,     0],
+    ['2025-09', 1055.6, 485,     0,     0.41],
+    ['2025-10', 1226.68,160,     60.6,  0.56],
+    ['2025-11', 2905.77,1780.01, 124.55,0],
+    ['2025-12', 4311.83,1680,    202,   2.84],
+    ['2026-01', 4507.97,382.34,  162.58,0],
+    ['2026-02', 5207.02,788.04,  77.57, 0],
+    ['2026-03', 5695.71,890,     0,     4.02],
+    ['2026-04', 6481.25,360,     43.43, 0.01],
+    ['2026-05', 6875.2, 0,       0,     0.01],
+    ['2026-06', 6522.29,0.92,    0,     4.96],
+    ['2026-07', 7127.3, 420,     0,     0.71],
+    ['2026-08', 7492.16,394,     404,   -2],
+    ['2026-09', 8367.8, 325,     0,     4.43]
+  ];
+
+  // Operaciones ejecutadas (formato: YYMMDD,Tipo,Ticker,Cantidad,Monto)
+  // Tipos: B = Compra, S = Venta, X = Split
+  const T_RAW = '250623,B,QQQ,.09505,50.15;250623,B,NDAQ,.23142,20.15;250623,B,SPY,.08421,50.15;250623,B,VOO,.0274,15.15;250624,S,NDAQ,.23142,19.88;250624,S,SPY,.08421,50.25;250625,B,QQQ,.01117,6.15;250625,B,SCHD,1.60262,42.9;250625,B,VT,.59739,75.55;250625,B,VOO,.17727,98.91;250718,S,SCHD,1.60262,43.05;250721,B,GOOGL,.23566,43.59;250722,B,GOOGL,.79765,151.17;250722,B,QQQ,.01591,9.14;250722,B,VT,.06389,8.49;250722,B,VOO,.03284,19.19;250903,B,QQQ,.01704,9.75;250903,B,NVDA,.11714,20.15;250903,B,VT,.11342,15.15;250923,B,QQQ,.1599,96.14;250923,B,NVDA,.38116,67.15;250923,B,VT,.70514,97.15;250923,B,VOO,.16318,100.15;250924,B,NVDA,.43905,79.15;251003,B,META,.06884,50.14;251007,B,META,.07135,50.4;251014,S,VT,1.47984,202.46;251015,B,VGT,.27224,202.45;251103,S,GOOGL,.5166,144.73;251103,S,VGT,.27224,216.82;251104,B,NFLX,.32139,361.61;251105,B,META,.2126,135;251110,B,QQQ,.18182,110.15;251110,B,VOO,.17817,109.15;251110,S,GOOGL,.51671,143.07;251114,B,META,.23342,143.77;251118,B,META,.66657,400.15;251118,B,QQQ,.65913,400.15;251118,X,NFLX,2.89251,0;251118,B,VOO,.8157,500.15;251204,B,NFLX,2.92261,300.01;251212,B,SPOT,.99717,600.15;260105,B,NFLX,1.08043,100.15;260105,B,TQQQ,9.6043,500.15;260108,B,SPOT,.34829,200.15;260112,S,TQQQ,9.6043,528.13;260115,B,TQQQ,10.0243,528.13;260116,S,TQQQ,10.0243,554.79;260130,B,TQQQ,9.34404,500.15;260203,B,GLD,.91455,400.15;260206,B,MSFT,.50005,200.15;260209,B,TQQQ,1.00623,50.15;260213,B,AMZN,.31746,64.15;260213,B,TQQQ,1.03299,50.55;260304,B,QQQ,.08347,49.7;260304,B,MSFT,.50632,200.15;260304,B,TQQQ,4.29507,200.15;260402,B,TQQQ,4.63338,200.15;260406,B,META,.3493,200.15;260410,S,AMZN,.31746,73.61;260414,S,NVDA,.93735,176.91;260414,S,TQQQ,17,846.02;260415,S,NFLX,5,527.62;260417,B,SPOT,.27917,150.15;260421,B,MSFT,.59792,250.15;260422,S,TQQQ,1.8,104.47;260424,B,MSFT,.60602,250.15;260429,B,SPOT,.3506,150.15;260501,B,META,.24847,150.15;260501,B,MSFT,.37395,150.15;260507,S,TQQQ,1.51171,105.1;260513,B,TQQQ,1.26294,93.15;260519,B,TQQQ,1.44912,107.15;260527,S,TQQQ,2.71206,219.91;260604,B,GLD,.27669,113.15;260608,B,TQQQ,4.57456,350.15;260608,B,TQQQ,5.64702,450.15;260616,S,TQQQ,10.22158,866.58;260623,B,GOOGL,.19564,68.74;260624,B,TQQQ,5.98838,450.15;260625,B,TQQQ,4.88179,350.15;260701,S,TQQQ,10.87017,867.2;260708,B,TQQQ,6.15782,450.15;260708,B,SMH,.1201,70.15;260709,B,TQQQ,4.98323,350.15;260710,S,TQQQ,11.14105,846.28;260714,B,TQQQ,7.51492,550.15;260717,B,GOOGL,.12795,46.15;260717,B,TQQQ,6.42144,450.15;260720,B,GOOGL,2.8937,1000.15;260724,B,MSFT,1.31282,500.15;260724,B,TQQQ,1.14265,75.22;260724,S,NFLX,2.21694,152.32;260724,S,SPOT,1.97523,922.89;260728,B,META,.83911,500.15;260731,S,MSFT,1.4,622.94;260804,B,TQQQ,.6431,42.15;260805,S,TQQQ,14.5,1080.14;260812,B,TQQQ,1.09923,80.15;260819,B,META,.72948,400.15;260821,B,TQQQ,5.66189,400.15;260825,B,SMH,.1587,87.14;260902,B,TQQQ,1.45734,100.15;260902,B,TQQQ,4.75162,325.15;260910,B,GOOGL,3.72872,1226.15;260910,S,META,1.9,1226;260922,S,TQQQ,14.19219,1084.6';
+
+  // Nombres completos de los activos
+  const N = {
+    GOOGL: 'Alphabet',
+    META: 'Meta',
+    QQQ: 'Invesco QQQ',
+    MSFT: 'Microsoft',
+    TQQQ: 'ProShares UltraPro QQQ',
+    GLD: 'SPDR Gold',
+    VOO: 'Vanguard S&P 500',
+    SMH: 'VanEck Semiconductor',
+    NFLX: 'Netflix',
+    SPOT: 'Spotify',
+    NVDA: 'Nvidia',
+    AMZN: 'Amazon',
+    VT: 'Vanguard Total World',
+    VGT: 'Vanguard Info Tech',
+    SCHD: 'Schwab Dividend',
+    SPY: 'SPDR S&P 500',
+    NDAQ: 'Nasdaq'
+  };
+
+  // Precios de mercado de activos en cartera al 30 de septiembre de 2026
+  const PR = {
+    GOOGL: 344.08,
+    META: 725.18,
+    QQQ: 739.77,
+    MSFT: 512.9,
+    GLD: 380.84,
+    VOO: 700.86,
+    SMH: 609
+  };
+
+  // Traspasos a Bakkt Crypto [fecha, monto_usd]
+  const X = [
+    ['2025-10-06', 60.6],
+    ['2025-11-18', 20.2],
+    ['2025-11-19', 104.35],
+    ['2025-12-17', 202],
+    ['2026-01-08', 162.58],
+    ['2026-02-02', 54.67],
+    ['2026-02-03', 22.9],
+    ['2026-04-16', 43.43],
+    ['2026-06-03', -0.92],
+    ['2026-08-11', 404]
+  ];
+
+  // --- FORMATEADORES ---
+
+  const MN = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  const lab = m => {
+    if (!m) return '';
+    const parts = m.split('-');
+    const idx = parseInt(parts[1], 10) - 1;
+    return `${MN[idx]} ${parts[0].slice(2)}`;
+  };
+
+  const f = n => {
+    if (n == null || isNaN(n)) return '—';
+    const sign = n < 0 ? '-' : '';
+    return sign + '$' + Math.abs(n).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
+  const sg = n => {
+    if (n == null || isNaN(n)) return '—';
+    return n < 0 ? f(n) : '+' + f(n);
+  };
+
+  const pc = n => {
+    if (n == null || isNaN(n)) return '—';
+    return (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+  };
+
+  const cls = n => {
+    if (n == null || isNaN(n) || n === 0) return 'neutral';
+    return n > 0 ? 'p' : 'n';
+  };
+
+  const dt = d => {
+    if (!d || d.length < 6) return d;
+    return `20${d.slice(0, 2)}-${d.slice(2, 4)}-${d.slice(4, 6)}`;
+  };
+
+  // --- MOTOR DE CÁLCULO DE BOLSA ---
+
+  function computePortfolioData() {
+    // 1. Parsear lista de operaciones
+    const rawOps = T_RAW.split(';').map(s => {
+      const [d, t, y, q, a] = s.split(',');
+      return {
+        d,
+        m: '20' + d.slice(0, 2) + '-' + d.slice(2, 4),
+        t,
+        y,
+        q: +q,
+        a: +a,
+        g: null
+      };
+    });
+
+    // 2. Procesar posiciones y ganancias realizadas
+    const pos = {};
+    const mr = {}; // Ganancia realizada por mes
+
+    rawOps.forEach(o => {
+      const p = pos[o.y] || (pos[o.y] = { q: 0, c: 0, r: 0 });
+      if (o.t === 'S') {
+        const costBasisOfSold = p.q > 0 ? (p.c / p.q) * o.q : 0;
+        o.g = o.a - costBasisOfSold;
+        p.q -= o.q;
+        p.c -= costBasisOfSold;
+        p.r += o.g;
+        mr[o.m] = (mr[o.m] || 0) + o.g;
+      } else if (o.t === 'B') {
+        p.q += o.q;
+        p.c += o.a;
+      } else if (o.t === 'X') {
+        // Split: suma cantidad de acciones sin alterar costo base total
+        p.q += o.q;
+      }
+    });
+
+    // 3. Calcular rendimientos mensuales (R)
+    let prevVal = 0;
+    const R = D.map(([m, v, d, w, dv]) => {
+      const rl = mr[m] || 0;
+      const fl = d - w; // Flujo neto de efectivo
+      const pl = v - prevVal - fl; // Ganancia/pérdida total del mes
+      const r = {
+        m,
+        v,
+        d,
+        w,
+        rl,
+        dv,
+        pl,
+        ur: pl - rl - dv, // No realizada
+        base: prevVal + fl / 2 // Capital promedio mensual
+      };
+      prevVal = v;
+      return r;
+    });
+
+    // 4. Predefinir períodos
+    const P = {
+      '1M': R.slice(-1),
+      '3M': R.slice(-3),
+      '6M': R.slice(-6),
+      'YTD': R.filter(r => r.m >= '2026-01'),
+      '1A': R.slice(-12),
+      '2025': R.filter(r => r.m < '2026-01'),
+      '2026': R.filter(r => r.m >= '2026-01'),
+      'ALL': R
+    };
+
+    // 5. Calcular posiciones actuales y efectivo FDIC
+    const lastMonth = R[R.length - 1];
+    const totalClosingVal = lastMonth ? lastMonth.v : 0;
+
+    const positionsRows = Object.entries(pos).map(([y, p]) => {
+      const hasShares = p.q > 1e-6;
+      const q = hasShares ? p.q : 0;
+      const price = PR[y] || 0;
+      const v = q * price;
+      const c = hasShares ? p.c : 0;
+      return {
+        y,
+        name: N[y] || y,
+        q,
+        price,
+        c,
+        avgCost: q > 0 ? c / q : 0,
+        v,
+        portfolioPct: totalClosingVal > 0 && q > 0 ? (v / totalClosingVal) * 100 : 0,
+        u: v - c,
+        unrealizedPct: c > 0 ? ((v - c) / c) * 100 : 0,
+        r: p.r
+      };
+    }).sort((a, b) => b.v - a.v || b.r - a.r);
+
+    const investedTotal = positionsRows.reduce((t, r) => t + r.v, 0);
+    const cashFdic = Math.max(0, totalClosingVal - investedTotal);
+    const cashPct = totalClosingVal > 0 ? (cashFdic / totalClosingVal) * 100 : 0;
+
+    return {
+      D,
+      T: rawOps,
+      N,
+      PR,
+      X,
+      R,
+      P,
+      pos,
+      mr,
+      positionsRows,
+      cashFdic,
+      cashPct,
+      totalClosingVal
+    };
+  }
+
+  // Calcula agregados para un subconjunto de meses S
+  function getPeriodSummary(S) {
+    if (!S || S.length === 0) {
+      return {
+        rl: 0,
+        ur: 0,
+        capitalGain: 0,
+        dv: 0,
+        total: 0,
+        base: 1,
+        deposited: 0,
+        withdrawn: 0,
+        closingValue: 0,
+        firstMonth: '',
+        lastMonth: '',
+        monthsCount: 0
+      };
+    }
+
+    const sum = fn => S.reduce((t, r) => t + fn(r), 0);
+    const base = sum(r => r.base) / S.length || 1;
+    const rl = sum(r => r.rl);
+    const ur = sum(r => r.ur);
+    const dv = sum(r => r.dv);
+    const capitalGain = rl + ur;
+    const total = capitalGain + dv;
+    const lastRow = S[S.length - 1];
+
+    return {
+      rl,
+      ur,
+      capitalGain,
+      dv,
+      total,
+      base,
+      deposited: sum(r => r.d),
+      withdrawn: sum(r => r.w),
+      closingValue: lastRow.v,
+      firstMonth: S[0].m,
+      lastMonth: lastRow.m,
+      monthsCount: S.length
+    };
+  }
+
+  // --- MOTOR DE CÁLCULO DE CRYPTO ---
+
+  function computeCryptoRows(history, spotPrice, overrides) {
+    const H0 = history || null;
+    const ov = overrides || {};
+
+    const findPriceOnDate = d => {
+      if (!H0 || !H0.length) return null;
+      const match = H0.find(x => x[0] >= d);
+      return match ? match[1] : H0[H0.length - 1][1];
+    };
+
+    const rows = X.map(([d, a], index) => {
+      const historicalPrice = findPriceOnDate(d);
+      const manualPrice = ov[index] != null && !isNaN(ov[index]) ? ov[index] : null;
+      const effectivePrice = manualPrice != null ? manualPrice : historicalPrice;
+      const estimatedBtc = effectivePrice && effectivePrice > 0 ? a / effectivePrice : 0;
+
+      return {
+        index,
+        date: d,
+        amount: a,
+        historicalPrice,
+        manualPrice,
+        effectivePrice,
+        estimatedBtc
+      };
+    });
+
+    const validRows = rows.filter(r => r.effectivePrice && r.effectivePrice > 0);
+    const totalInvested = validRows.reduce((t, r) => t + r.amount, 0);
+    const totalBtc = validRows.reduce((t, r) => t + r.estimatedBtc, 0);
+    const avgPrice = totalBtc > 0 ? totalInvested / totalBtc : 0;
+    const currentVal = spotPrice != null && spotPrice > 0 ? totalBtc * spotPrice : null;
+    const profitLoss = currentVal != null ? currentVal - totalInvested : null;
+    const roiPct = profitLoss != null && totalInvested > 0 ? (profitLoss / totalInvested) * 100 : null;
+
+    return {
+      rows,
+      totalInvested,
+      totalBtc,
+      avgPrice,
+      currentVal,
+      profitLoss,
+      roiPct
+    };
+  }
+
+  // --- CONSULTA DE PRECIOS BTC VIA YAHOO FINANCE & PROXIES CORS ---
+
+  async function fetchBtcData() {
+    const queryUrl = encodeURIComponent('https://query2.finance.yahoo.com/v8/finance/chart/BTC-USD?range=2y&interval=1d');
+    const proxies = [
+      'https://api.allorigins.win/raw?url=',
+      'https://corsproxy.io/?'
+    ];
+
+    let lastError = null;
+
+    for (const proxy of proxies) {
+      try {
+        const response = await fetch(proxy + queryUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const result = data.chart.result[0];
+        const quotes = result.indicators.quote[0].close;
+        const timestamps = result.timestamp;
+
+        const history = timestamps
+          .map((ts, idx) => [
+            new Date(ts * 1000).toISOString().slice(0, 10),
+            quotes[idx]
+          ])
+          .filter(item => item[1] != null && !isNaN(item[1]));
+
+        const spot = result.meta.regularMarketPrice;
+        const timestampStr = new Date().toLocaleString('es-ES', {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        });
+
+        return {
+          history,
+          spot,
+          timestamp: timestampStr,
+          success: true
+        };
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    throw lastError || new Error('No se pudo conectar a los proxies de Yahoo Finance');
+  }
+
+  // --- PERSISTENCIA EN LOCALSTORAGE ---
+
+  function loadBtcStorage() {
+    try {
+      const stored = localStorage.getItem('btc');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          history: parsed.h || null,
+          spot: parsed.s || null,
+          overrides: parsed.o || {},
+          timestamp: parsed.t || ''
+        };
+      }
+    } catch (e) {
+      console.warn('Error leyendo localStorage btc:', e);
+    }
+    return { history: null, spot: null, overrides: {}, timestamp: '' };
+  }
+
+  function saveBtcStorage(state) {
+    try {
+      const current = loadBtcStorage();
+      const payload = {
+        h: state.history !== undefined ? state.history : current.history,
+        s: state.spot !== undefined ? state.spot : current.spot,
+        o: state.overrides !== undefined ? state.overrides : current.overrides,
+        t: state.timestamp !== undefined ? state.timestamp : current.timestamp
+      };
+      localStorage.setItem('btc', JSON.stringify(payload));
+    } catch (e) {
+      console.warn('Error guardando en localStorage btc:', e);
+    }
+  }
+
+  return {
+    D,
+    T_RAW,
+    N,
+    PR,
+    X,
+    lab,
+    f,
+    sg,
+    pc,
+    cls,
+    dt,
+    computePortfolioData,
+    getPeriodSummary,
+    computeCryptoRows,
+    fetchBtcData,
+    loadBtcStorage,
+    saveBtcStorage
+  };
+});
