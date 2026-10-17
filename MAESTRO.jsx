@@ -54,260 +54,174 @@ const Icons = {
   )
 };
 
-// --- COMPONENTE: GRÁFICO INTERACTIVO SVG ---
-function InteractiveChart({ monthsData, f, lab }) {
-  const [tooltip, setTooltip] = useState(null);
-  const svgRef = useRef(null);
+// --- UTILIDADES DEL GRÁFICO ---
+function niceTicks(min, max, count = 4) {
+  const lo = Math.min(min, 0);
+  const hi = Math.max(max, 0);
+  const span = hi - lo || 1;
+  const raw = span / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+  const start = Math.floor(lo / step) * step;
+  const end = Math.ceil(hi / step) * step;
+  const ticks = [];
+  for (let v = start; v <= end + step / 2; v += step) ticks.push(Math.round(v * 100) / 100);
+  return { ticks, min: start, max: end };
+}
 
-  const W = 960;
-  const H = 270;
-  const L = 64;
-  const R_PAD = 24;
-  const B_PAD = 36;
-  const T_PAD = 30;
+const axisLabel = v => {
+  const a = Math.abs(v);
+  const s = a >= 1000 ? `${(a / 1000).toFixed(a % 1000 === 0 ? 0 : 1)}k` : `${a}`;
+  return `${v < 0 ? '-' : ''}$${s}`;
+};
+
+// --- COMPONENTE: GRÁFICO INTERACTIVO SVG (2 paneles: resultado mensual + acumulado) ---
+function InteractiveChart({ monthsData, f, lab }) {
+  const [tip, setTip] = useState(null);
+  const [width, setWidth] = useState(0);
+  const wrapRef = useRef(null);
+
+  // El SVG se dibuja al ancho real del contenedor (texto nítido, sin escalado)
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return undefined;
+    const update = () => setWidth(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => { setTip(null); }, [monthsData]);
 
   const n = monthsData.length;
   if (!n) return null;
 
-  const barWidth = Math.min(36, Math.max(14, ((W - L - R_PAD) / n) * 0.45));
+  const W = Math.max(300, width || 900);
+  const compact = W < 560;
+  const L = compact ? 46 : 58;
+  const RP = 14;
+  const step = (W - L - RP) / n;
+  const bw = Math.min(34, Math.max(6, step * 0.58));
+  const TOP = 10;
+  const hA = compact ? 150 : 190;
+  const GAP = 34;
+  const hB = compact ? 120 : 150;
+  const BOT = 28;
+  const topB = TOP + hA + GAP;
+  const H = topB + hB + BOT;
 
-  // Acumulador de ganancia y segmentos apilados
   let cum = 0;
   const cumulative = monthsData.map(r => (cum += r.pl));
-
-  const stacked = monthsData.map(r => {
-    let posA = 0;
-    let negB = 0;
-    const segments = [];
-    [
-      [r.rl, '#38bdf8', 'Realizada'],
-      [r.ur, '#f97316', 'No realizada']
-    ].forEach(([val, color, type]) => {
-      if (val >= 0) {
-        segments.push({ y0: posA, y1: posA + val, color, val, type });
-        posA += val;
-      } else {
-        segments.push({ y0: negB, y1: negB + val, color, val, type });
-        negB += val;
-      }
+  const stacks = monthsData.map(r => {
+    let pos = 0;
+    let neg = 0;
+    return [[r.rl, 'realized'], [r.ur, 'unrealized']].map(([val, kind]) => {
+      const y0 = val >= 0 ? pos : neg;
+      const y1 = y0 + val;
+      if (val >= 0) pos = y1; else neg = y1;
+      return { y0, y1, kind };
     });
-    return segments;
   });
-
-  const allValues = [
-    ...cumulative.map(Math.abs),
-    ...stacked.flat().map(s => Math.max(Math.abs(s.y0), Math.abs(s.y1)))
-  ];
-  const maxVal = Math.max(10, ...allValues) * 1.15;
-
-  const yCoord = v => T_PAD + (H - T_PAD - B_PAD) * (1 - (v + maxVal) / (2 * maxVal));
-  const xCoord = i => L + (W - L - R_PAD) * ((i + 0.5) / n);
-
-  const handleMouseMove = (e, r, i) => {
-    if (!svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const xPos = ((xCoord(i) / W) * rect.width);
-    const yPos = Math.min(rect.height - 40, Math.max(40, (yCoord(cumulative[i]) / H) * rect.height));
-
-    setTooltip({
-      x: xPos,
-      y: yPos,
-      data: r,
-      cumTotal: cumulative[i]
-    });
-  };
-
-  const handleMouseLeave = () => {
-    setTooltip(null);
-  };
-
-  const polylinePoints = cumulative.map((v, i) => `${xCoord(i)},${yCoord(v)}`).join(' ');
+  const flat = stacks.flat();
+  const tA = niceTicks(Math.min(0, ...flat.map(s => Math.min(s.y0, s.y1))), Math.max(0, ...flat.map(s => Math.max(s.y0, s.y1))), compact ? 3 : 4);
+  const tB = niceTicks(Math.min(0, ...cumulative), Math.max(0, ...cumulative), 3);
+  const yA = v => TOP + hA * (1 - (v - tA.min) / (tA.max - tA.min));
+  const yB = v => topB + hB * (1 - (v - tB.min) / (tB.max - tB.min));
+  const xC = i => L + step * (i + 0.5);
+  const maxDep = Math.max(1, ...monthsData.map(r => r.d));
+  const labelEvery = Math.max(1, Math.ceil(46 / step));
+  const linePts = cumulative.map((v, i) => `${xC(i)},${yB(v)}`).join(' ');
+  const areaPath = `M${xC(0)},${yB(0)} ${cumulative.map((v, i) => `L${xC(i)},${yB(v)}`).join(' ')} L${xC(n - 1)},${yB(0)} Z`;
+  const last = cumulative[n - 1];
+  const d = tip != null ? monthsData[tip] : null;
 
   return (
     <div className="chart-card">
       <div className="chart-header">
-        <h3 className="chart-title">Rendimiento Mensual y Evolución Acumulada</h3>
+        <h3 className="chart-title">Rendimiento mensual y acumulado</h3>
         <div className="chart-legend">
-          <span className="legend-item">
-            <span className="legend-chip realized"></span> Realizada
-          </span>
-          <span className="legend-item">
-            <span className="legend-chip unrealized"></span> No realizada
-          </span>
-          <span className="legend-item">
-            <span className="legend-chip cumulative"></span> Total acumulado
-          </span>
-          <span className="legend-item">
-            <span className="legend-chip deposit"></span> Depósito
-          </span>
+          <span className="legend-item"><span className="legend-chip realized"></span>Realizada</span>
+          <span className="legend-item"><span className="legend-chip unrealized"></span>No realizada</span>
+          <span className="legend-item"><span className="legend-chip cumulative"></span>Total acumulado</span>
+          <span className="legend-item"><span className="legend-chip deposit"></span>Depósito</span>
         </div>
       </div>
 
-      <div className="svg-chart-wrapper" onMouseLeave={handleMouseLeave}>
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${W} ${H}`}
-          width="100%"
-          style={{ minWidth: '560px', display: 'block' }}
-        >
-          {/* Ejes y líneas de referencia */}
-          {[-maxVal, 0, maxVal].map((val, idx) => {
-            const y = yCoord(val);
-            return (
-              <g key={idx}>
-                <line
-                  x1={L}
-                  x2={W - R_PAD}
-                  y1={y}
-                  y2={y}
-                  stroke={val === 0 ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.08)'}
-                  strokeWidth={val === 0 ? '1.5' : '1'}
-                  strokeDasharray={val === 0 ? 'none' : '4 4'}
-                />
-                <text
-                  x={L - 10}
-                  y={y + 4}
-                  fontSize="11"
-                  textAnchor="end"
-                  fill="var(--text-muted)"
-                  fontFamily="'JetBrains Mono', monospace"
-                >
-                  {f(Math.round(val)).replace('.00', '')}
-                </text>
-              </g>
-            );
-          })}
+      <div className="svg-chart-wrapper" ref={wrapRef} onMouseLeave={() => setTip(null)}>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Rendimiento mensual y acumulado">
+          {tA.ticks.map(v => (
+            <g key={`a${v}`}>
+              <line className={v === 0 ? 'chart-zero' : 'chart-grid'} x1={L} x2={W - RP} y1={yA(v)} y2={yA(v)} />
+              <text className="chart-axis" x={L - 8} y={yA(v) + 4} textAnchor="end">{axisLabel(v)}</text>
+            </g>
+          ))}
+          {tB.ticks.map(v => (
+            <g key={`b${v}`}>
+              <line className={v === 0 ? 'chart-zero' : 'chart-grid'} x1={L} x2={W - RP} y1={yB(v)} y2={yB(v)} />
+              <text className="chart-axis" x={L - 8} y={yB(v) + 4} textAnchor="end">{axisLabel(v)}</text>
+            </g>
+          ))}
 
-          {/* Barras apiladas de Realizada y No Realizada */}
-          {stacked.map((segments, i) => {
-            const x = xCoord(i) - barWidth / 2;
-            const rowData = monthsData[i];
-            return (
-              <g
-                key={`col-${i}`}
-                onMouseMove={e => handleMouseMove(e, rowData, i)}
-                style={{ cursor: 'pointer' }}
-              >
-                {/* Zona invisible para facilitar hover */}
-                <rect
-                  x={xCoord(i) - (W - L) / n / 2}
-                  y={T_PAD}
-                  width={(W - L) / n}
-                  height={H - T_PAD - B_PAD}
-                  fill="transparent"
-                />
-                {segments.map((seg, sIdx) => {
-                  const yTop = Math.min(yCoord(seg.y0), yCoord(seg.y1));
-                  const height = Math.max(1, Math.abs(yCoord(seg.y0) - yCoord(seg.y1)));
-                  return (
-                    <rect
-                      key={sIdx}
-                      x={x}
-                      y={yTop}
-                      width={barWidth}
-                      height={height}
-                      fill={seg.color}
-                      rx="3"
-                      opacity="0.9"
-                    />
-                  );
-                })}
-              </g>
-            );
-          })}
+          {tip != null && <line className="chart-guide" x1={xC(tip)} x2={xC(tip)} y1={TOP} y2={topB + hB} />}
 
-          {/* Línea de rendimiento total acumulado */}
-          <polyline
-            fill="none"
-            stroke="var(--gain)"
-            strokeWidth="2.5"
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            points={polylinePoints}
-          />
+          {stacks.map((segs, i) => segs.map(sg => (
+            Math.abs(sg.y1 - sg.y0) < 1e-9 ? null : (
+              <rect
+                key={`${i}-${sg.kind}`}
+                className={`bar-${sg.kind}`}
+                x={xC(i) - bw / 2}
+                y={Math.min(yA(sg.y0), yA(sg.y1))}
+                width={bw}
+                height={Math.max(1, Math.abs(yA(sg.y0) - yA(sg.y1)))}
+                rx="2"
+                opacity={tip == null || tip === i ? 1 : 0.45}
+              />
+            )
+          )))}
 
-          {/* Puntos de datos y marcas de depósitos */}
-          {monthsData.map((r, i) => {
-            const cx = xCoord(i);
-            const cy = yCoord(cumulative[i]);
-            return (
-              <g key={`marker-${i}`} onMouseMove={e => handleMouseMove(e, r, i)} style={{ cursor: 'pointer' }}>
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r="4"
-                  fill="var(--gain)"
-                  stroke="var(--bg-app)"
-                  strokeWidth="2"
-                />
-                {r.d > 0 && (
-                  <circle
-                    cx={cx}
-                    cy={14}
-                    r="4.5"
-                    fill="none"
-                    stroke="var(--amber)"
-                    strokeWidth="2"
-                  >
-                    <title>{`Depósito de ${f(r.d)}`}</title>
-                  </circle>
-                )}
-                <text
-                  x={cx}
-                  y={H - 12}
-                  fontSize="11"
-                  textAnchor="middle"
-                  fill="var(--text-muted)"
-                  fontFamily="'Outfit', sans-serif"
-                  fontWeight="500"
-                >
-                  {lab(r.m)}
-                </text>
-              </g>
-            );
-          })}
+          {monthsData.map((r, i) => r.d > 0 && (
+            <circle key={`dep${i}`} className="deposit-dot" cx={xC(i)} cy={TOP + hA + GAP / 2} r={3 + 4 * Math.sqrt(r.d / maxDep)}>
+              <title>{`Depósito de ${f(r.d)}`}</title>
+            </circle>
+          ))}
+
+          <path className="area-cum" d={areaPath} />
+          <polyline className="line-cum" points={linePts} />
+          {cumulative.map((v, i) => (
+            <circle key={`pt${i}`} className="dot-cum" cx={xC(i)} cy={yB(v)} r={tip === i ? 5 : 3} />
+          ))}
+          <text className="chart-value-label" x={xC(n - 1)} y={yB(last) + (last >= 0 ? -10 : 18)} textAnchor="end">{f(last)}</text>
+
+          {monthsData.map((r, i) => (n - 1 - i) % labelEvery === 0 && (
+            <text key={`lb${i}`} className="chart-xlabel" x={xC(i)} y={H - 8} textAnchor="middle">{lab(r.m)}</text>
+          ))}
+
+          {monthsData.map((r, i) => (
+            <rect
+              key={`hit${i}`}
+              x={L + step * i}
+              y={TOP}
+              width={step}
+              height={topB + hB - TOP}
+              fill="transparent"
+              onMouseMove={() => setTip(i)}
+              onClick={() => setTip(i)}
+            />
+          ))}
         </svg>
 
-        {/* Tooltip flotante interactivo */}
-        {tooltip && (
-          <div
-            className="chart-tooltip-floating"
-            style={{
-              left: `${tooltip.x}px`,
-              top: `${tooltip.y}px`
-            }}
-          >
-            <div className="tooltip-header">{lab(tooltip.data.m)}</div>
-            <div className="tooltip-row">
-              <span>Realizada:</span>
-              <span className={tooltip.data.rl >= 0 ? 'p' : 'n'}>{f(tooltip.data.rl)}</span>
-            </div>
-            <div className="tooltip-row">
-              <span>No realizada:</span>
-              <span className={tooltip.data.ur >= 0 ? 'p' : 'n'}>{f(tooltip.data.ur)}</span>
-            </div>
-            <div className="tooltip-row">
-              <span>Divid./Cargos:</span>
-              <span>{f(tooltip.data.dv)}</span>
-            </div>
-            <div className="tooltip-row">
-              <span>Total Mes:</span>
-              <span className={tooltip.data.pl >= 0 ? 'p' : 'n'}>{f(tooltip.data.pl)}</span>
-            </div>
-            <div className="tooltip-row" style={{ marginTop: '4px', paddingTop: '4px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              <span>Acumulado:</span>
-              <span style={{ color: 'var(--gain)' }}>{f(tooltip.cumTotal)}</span>
-            </div>
-            {tooltip.data.d > 0 && (
-              <div className="tooltip-row">
-                <span>Depósito:</span>
-                <span style={{ color: 'var(--amber)' }}>{f(tooltip.data.d)}</span>
-              </div>
-            )}
-            <div className="tooltip-row">
-              <span>Cierre Portafolio:</span>
-              <span>{f(tooltip.data.v)}</span>
-            </div>
+        {d && (
+          <div className={`chart-tooltip-floating ${tip > n / 2 ? 'left' : ''}`} style={{ left: xC(tip) + (tip > n / 2 ? -14 : 14) }}>
+            <div className="tooltip-header">{lab(d.m)}</div>
+            <div className="tooltip-row"><span>Realizada</span><span className={d.rl >= 0 ? 'p' : 'n'}>{f(d.rl)}</span></div>
+            <div className="tooltip-row"><span>No realizada</span><span className={d.ur >= 0 ? 'p' : 'n'}>{f(d.ur)}</span></div>
+            <div className="tooltip-row"><span>Dividendos y cargos</span><span>{f(d.dv)}</span></div>
+            <div className="tooltip-row"><span>Total del mes</span><span className={d.pl >= 0 ? 'p' : 'n'}>{f(d.pl)}</span></div>
+            <div className="tooltip-row"><span>Acumulado</span><span className={cumulative[tip] >= 0 ? 'p' : 'n'}>{f(cumulative[tip])}</span></div>
+            {d.d > 0 && <div className="tooltip-row"><span>Depósito</span><span>{f(d.d)}</span></div>}
+            <div className="tooltip-row"><span>Valor al cierre</span><span>{f(d.v)}</span></div>
           </div>
         )}
       </div>
@@ -527,70 +441,31 @@ function App() {
             </div>
           </div>
 
-          {/* TARJETAS KPI (FORMATO MAESTRO) */}
+          {/* KPIs: tarjeta principal + 4 mosaicos */}
           <div className="cards-grid">
-            <div className="card-kpi">
-              <span className="card-kpi-label">Realizada</span>
-              <b className={`card-kpi-val ${cls(periodSummary.rl)}`}>
-                {sg(periodSummary.rl)}
-              </b>
-              <span className={`card-kpi-pct ${cls(periodSummary.rl)}`}>
-                {pc((periodSummary.rl / periodSummary.base) * 100)}
-              </span>
-            </div>
-
-            <div className="card-kpi">
-              <span className="card-kpi-label">No realizada</span>
-              <b className={`card-kpi-val ${cls(periodSummary.ur)}`}>
-                {sg(periodSummary.ur)}
-              </b>
-              <span className={`card-kpi-pct ${cls(periodSummary.ur)}`}>
-                {pc((periodSummary.ur / periodSummary.base) * 100)}
-              </span>
-            </div>
-
-            <div className="card-kpi">
-              <span className="card-kpi-label">Realizada + no realizada</span>
-              <b className={`card-kpi-val ${cls(periodSummary.capitalGain)}`}>
-                {sg(periodSummary.capitalGain)}
-              </b>
-              <span className={`card-kpi-pct ${cls(periodSummary.capitalGain)}`}>
-                {pc((periodSummary.capitalGain / periodSummary.base) * 100)}
-              </span>
-            </div>
-
-            <div className="card-kpi">
-              <span className="card-kpi-label">Dividendos netos y cargos</span>
-              <b className={`card-kpi-val ${cls(periodSummary.dv)}`}>
-                {sg(periodSummary.dv)}
-              </b>
-              <span className={`card-kpi-pct ${cls(periodSummary.dv)}`}>
-                {pc((periodSummary.dv / periodSummary.base) * 100)}
-              </span>
-            </div>
-
-            <div className="card-kpi">
+            <div className="card-kpi hero">
               <span className="card-kpi-label">Rendimiento total</span>
-              <b className={`card-kpi-val ${cls(periodSummary.total)}`}>
-                {sg(periodSummary.total)}
-              </b>
-              <span className={`card-kpi-pct ${cls(periodSummary.total)}`}>
-                {pc((periodSummary.total / periodSummary.base) * 100)}
-              </span>
+              <b className={`card-kpi-val hero-val ${cls(periodSummary.total)}`}>{sg(periodSummary.total)}</b>
+              <span className={`pct-pill ${cls(periodSummary.total)}`}>{pc((periodSummary.total / periodSummary.base) * 100)}</span>
+              <div className="hero-stats">
+                <div className="hero-stat"><span>Depositado</span><b>{f(periodSummary.deposited)}</b></div>
+                <div className="hero-stat"><span>Retirado</span><b>{f(periodSummary.withdrawn)}</b></div>
+                <div className="hero-stat"><span>Valor al cierre</span><b>{f(periodSummary.closingValue)}</b></div>
+              </div>
+              <p className="hero-note">Los depósitos no cuentan como ganancia; los % son sobre el capital promedio del periodo.</p>
             </div>
-          </div>
-
-          {/* TEXTO DE RESUMEN DEL PERÍODO */}
-          <div className="info-subtext">
-            Depositado {f(periodSummary.deposited)} · Retirado {f(periodSummary.withdrawn)} · Valor al cierre {f(periodSummary.closingValue)} · Los depósitos no cuentan como ganancia; los % son sobre el capital promedio del periodo.
-          </div>
-
-          {/* LEYENDA DEL GRÁFICO */}
-          <div className="chart-legend-row">
-            <span style={{ color: 'var(--sky)' }}>■</span> Realizada &nbsp;
-            <span style={{ color: 'var(--orange)' }}>■</span> No realizada &nbsp;
-            <span style={{ color: 'var(--gain)' }}>—</span> Total acumulado &nbsp;
-            <span style={{ color: 'var(--amber)' }}>○</span> Depósitos
+            {[
+              ['Realizada', periodSummary.rl],
+              ['No realizada', periodSummary.ur],
+              ['Realizada + no realizada', periodSummary.capitalGain],
+              ['Dividendos netos y cargos', periodSummary.dv]
+            ].map(([label, val]) => (
+              <div className="card-kpi" key={label}>
+                <span className="card-kpi-label">{label}</span>
+                <b className={`card-kpi-val ${cls(val)}`}>{sg(val)}</b>
+                <span className={`card-kpi-pct ${cls(val)}`}>{pc((val / periodSummary.base) * 100)}</span>
+              </div>
+            ))}
           </div>
 
           {/* GRÁFICO INTERACTIVO */}
@@ -599,11 +474,12 @@ function App() {
           {/* TABLA DE POSICIONES Y ACTIVOS */}
           <div className="section-wrapper">
             <div className="section-header">
-              <h2 className="section-title">
-                Posiciones y activos · precios al 30 sep 2026
-              </h2>
+              <h2 className="section-title">Posiciones y activos <span className="section-sub">precios al 30 sep 2026</span></h2>
+              <div className="search-input-wrapper">
+                <span className="search-icon"><Icons.Search /></span>
+                <input type="search" placeholder="Buscar activo" aria-label="Buscar activo" value={posSearch} onChange={e => setPosSearch(e.target.value)} />
+              </div>
             </div>
-
             <div className="table-card">
               <div className="table-scroll">
                 <table className="data-table">
@@ -622,21 +498,31 @@ function App() {
                   <tbody>
                     {filteredPositions.map(r => (
                       <tr key={r.y}>
-                        <td title={r.name}>{r.y}</td>
+                        <td>
+                          <div className="ticker-cell">
+                            <span className="ticker-symbol">{r.y}</span>
+                            <span className="ticker-name">{r.name}</span>
+                          </div>
+                        </td>
                         <td>{r.q > 0 ? r.q.toFixed(5) : '—'}</td>
                         <td>{r.q > 0 ? f(r.avgCost) : '—'}</td>
                         <td>{r.q > 0 ? f(r.price) : '—'}</td>
                         <td>{r.q > 0 ? f(r.v) : '—'}</td>
-                        <td>{r.q > 0 ? (r.portfolioPct).toFixed(1) + '%' : '—'}</td>
-                        <td className={r.q > 0 ? cls(r.u) : 'neutral'}>
-                          {r.q > 0 ? `${sg(r.u)} (${pc(r.unrealizedPct)})` : '—'}
+                        <td>
+                          {r.q > 0 ? (
+                            <span className="weight-cell">
+                              {r.portfolioPct.toFixed(1)}%
+                              <span className="portfolio-weight-bar"><span className="weight-fill" style={{ width: `${Math.min(100, r.portfolioPct)}%` }}></span></span>
+                            </span>
+                          ) : '—'}
                         </td>
-                        <td className={r.r !== 0 ? cls(r.r) : 'neutral'}>
-                          {r.r !== 0 ? sg(r.r) : '—'}
-                        </td>
+                        <td className={r.q > 0 ? cls(r.u) : 'neutral'}>{r.q > 0 ? `${sg(r.u)} (${pc(r.unrealizedPct)})` : '—'}</td>
+                        <td className={r.r !== 0 ? cls(r.r) : 'neutral'}>{r.r !== 0 ? sg(r.r) : '—'}</td>
                       </tr>
                     ))}
-                    {/* FILA DE EFECTIVO / FDIC */}
+                    {filteredPositions.length === 0 && (
+                      <tr><td colSpan={8} className="empty-row">No hay activos que coincidan con la búsqueda.</td></tr>
+                    )}
                     <tr className="row-cash">
                       <td>Efectivo / FDIC</td>
                       <td></td>
@@ -697,11 +583,19 @@ function App() {
           {/* TABLA DE OPERACIONES */}
           <div className="section-wrapper">
             <div className="section-header">
-              <h2 className="section-title">
-                Operaciones del periodo
-              </h2>
+              <h2 className="section-title">Operaciones del periodo <span className="section-sub">{filteredOperations.length} movimientos</span></h2>
+              <div className="section-tools">
+                <div className="segmented" role="group" aria-label="Tipo de operación">
+                  {[['ALL', 'Todas'], ['B', 'Compras'], ['S', 'Ventas'], ['X', 'Split']].map(([k, l]) => (
+                    <button key={k} className={opsType === k ? 'active' : ''} onClick={() => setOpsType(k)}>{l}</button>
+                  ))}
+                </div>
+                <div className="search-input-wrapper">
+                  <span className="search-icon"><Icons.Search /></span>
+                  <input type="search" placeholder="Buscar activo" aria-label="Buscar operación por activo" value={opsSearch} onChange={e => setOpsSearch(e.target.value)} />
+                </div>
+              </div>
             </div>
-
             <div className="table-card">
               <div className="table-scroll">
                 <table className="data-table">
@@ -719,15 +613,16 @@ function App() {
                     {filteredOperations.map((o, idx) => (
                       <tr key={idx}>
                         <td>{dt(o.d)}</td>
-                        <td>{o.t === 'B' ? 'Compra' : o.t === 'S' ? 'Venta' : 'Split'}</td>
+                        <td><span className={`badge-op ${o.t === 'B' ? 'buy' : o.t === 'S' ? 'sell' : 'split'}`}>{o.t === 'B' ? 'Compra' : o.t === 'S' ? 'Venta' : 'Split'}</span></td>
                         <td title={portfolioData.N[o.y] || ''}>{o.y}</td>
                         <td>{o.q}</td>
                         <td>{o.a ? f(o.a) : '—'}</td>
-                        <td className={o.g == null ? '' : cls(o.g)}>
-                          {o.g == null ? '—' : sg(o.g)}
-                        </td>
+                        <td className={o.g == null ? 'neutral' : cls(o.g)}>{o.g == null ? '—' : sg(o.g)}</td>
                       </tr>
                     ))}
+                    {filteredOperations.length === 0 && (
+                      <tr><td colSpan={6} className="empty-row">No hay operaciones con este filtro en el periodo.</td></tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -767,7 +662,7 @@ function App() {
           </div>
 
           {/* TARJETAS KPI DE CRYPTO */}
-          <div className="cards-grid">
+          <div className="cards-grid flat">
             <div className="card-kpi">
               <span className="card-kpi-label">Invertido neto</span>
               <b className="card-kpi-val">{f(cryptoData.totalInvested)}</b>
