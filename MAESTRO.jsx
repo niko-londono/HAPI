@@ -30,6 +30,63 @@ const Icons = {
   )
 };
 
+// --- LOGOS DE TICKERS (SVG propio, sin imágenes externas) ---
+// Monograma sobre un cuadro redondeado teñido con el color de la marca; colores aclarados en modo oscuro vía CSS.
+// mark: dibujo simple propio cuando aporta reconocimiento (cuadros de Microsoft, ₿); si no, texto corto.
+const TICKER_BRAND = {
+  GOOGL: { c: '#4285f4', t: 'G' },
+  META: { c: '#0866ff', t: 'M' },
+  QQQ: { c: '#1f4e9c', t: 'Q' },
+  MSFT: { c: '#737373', mark: 'msft' },
+  TQQQ: { c: '#3b3b3b', t: '3×' },
+  GLD: { c: '#b8860b', t: 'Au' },
+  VOO: { c: '#96151d', t: 'V' },
+  VT: { c: '#96151d', t: 'VT' },
+  VGT: { c: '#96151d', t: 'VG' },
+  SMH: { c: '#0e3b7d', t: 'SM' },
+  NFLX: { c: '#e50914', t: 'N' },
+  SPOT: { c: '#1db954', t: 'S' },
+  NVDA: { c: '#76b900', t: 'NV' },
+  AMZN: { c: '#ff9900', t: 'a' },
+  SCHD: { c: '#00a0df', t: 'SC' },
+  SPY: { c: '#c8102e', t: 'SP' },
+  NDAQ: { c: '#0090ba', t: 'ND' },
+  BTC: { c: '#f7931a', t: '₿' },
+  Efectivo: { c: '#7a7a74', t: '$' }
+};
+
+function TickerLogo({ y, size = 28 }) {
+  const b = TICKER_BRAND[y] || { c: '#7a7a74', t: (y || '?').slice(0, 2) };
+  const fs = b.t && b.t.length > 1 ? size * 0.36 : size * 0.46;
+  return (
+    <svg className="tlogo" width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ '--c': b.c }} aria-hidden="true">
+      <rect className="tlogo-bg" x="0.5" y="0.5" width={size - 1} height={size - 1} rx={size * 0.28} />
+      {b.mark === 'msft' ? (
+        <g transform={`translate(${size * 0.27} ${size * 0.27})`}>
+          {[['#f25022', 0, 0], ['#7fba00', 1, 0], ['#00a4ef', 0, 1], ['#ffb900', 1, 1]].map(([fill, cx, cy]) => (
+            <rect key={fill} x={cx * size * 0.24} y={cy * size * 0.24} width={size * 0.215} height={size * 0.215} fill={fill} />
+          ))}
+        </g>
+      ) : (
+        <text className="tlogo-text" x="50%" y="50%" dy="0.35em" textAnchor="middle" fontSize={fs}>{b.t}</text>
+      )}
+    </svg>
+  );
+}
+
+// Celda de activo: logo + ticker (+ nombre opcional)
+function TickerCell({ y, name, size }) {
+  return (
+    <div className="ticker-cell">
+      <TickerLogo y={y} size={size} />
+      <div className="ticker-text">
+        <span className="ticker-symbol">{y}</span>
+        {name && <span className="ticker-name">{name}</span>}
+      </div>
+    </div>
+  );
+}
+
 // --- UTILIDADES DEL GRÁFICO ---
 function niceTicks(min, max, count = 4, includeZero = true) {
   const lo = includeZero ? Math.min(min, 0) : min;
@@ -849,10 +906,7 @@ function App() {
                     {filteredPositions.map(r => (
                       <tr key={r.y}>
                         <td>
-                          <div className="ticker-cell">
-                            <span className="ticker-symbol">{r.y}</span>
-                            <span className="ticker-name">{r.name}</span>
-                          </div>
+                          <TickerCell y={r.y} name={r.name} />
                         </td>
                         <td>{r.q > 0 ? r.q.toFixed(5) : '—'}</td>
                         <td>{r.q > 0 ? f(r.avgCost) : '—'}</td>
@@ -962,7 +1016,7 @@ function App() {
                       <tr key={idx}>
                         <td>{dt(o.d)}</td>
                         <td><span className={`badge ${o.t === 'B' ? 'buy' : o.t === 'S' ? 'sell' : 'split'}`}>{o.t === 'B' ? 'Compra' : o.t === 'S' ? 'Venta' : 'Split'}</span></td>
-                        <td title={portfolioData.N[o.y] || ''}>{o.y}</td>
+                        <td title={portfolioData.N[o.y] || ''}><TickerCell y={o.y} size={22} /></td>
                         <td>{o.q}</td>
                         <td>{o.a ? f(o.a) : '—'}</td>
                         <td className={o.g == null ? 'neutral' : cls(o.g)}>{o.g == null ? '—' : sg(o.g)}</td>
@@ -985,6 +1039,7 @@ function App() {
           {/* PRECIO BTC */}
           <div className="toolbar">
             <div className="price-source">
+              <TickerLogo y="BTC" size={26} />
               <span className="price-source-label">BTC-USD</span>
               <b>{f(crypto.price)}</b>
               <span className="toolbar-note">{priceSourceLabel}</span>
@@ -1232,10 +1287,7 @@ function App() {
                     {total.holdings.map(h => (
                       <tr key={h.key}>
                         <td>
-                          <div className="ticker-cell">
-                            <span className="ticker-symbol">{h.key}</span>
-                            <span className="ticker-name">{h.name}</span>
-                          </div>
+                          <TickerCell y={h.key} name={h.name} />
                         </td>
                         <td><span className={`badge ${h.account === 'Crypto' ? 'sell' : 'split'}`}>{h.account}</span></td>
                         <td>{f(h.v)}</td>
@@ -1418,7 +1470,7 @@ function App() {
                     {dash.dividends.rows.slice().reverse().map((x, k) => (
                       <tr key={k}>
                         <td className="strong">{fd(x.date)}</td>
-                        <td><span className="legend-item ticker-legend"><span className={`legend-chip ${divCls(x.key)}`}></span><span className="ticker-symbol">{x.y}</span></span></td>
+                        <td><span className="ticker-legend"><TickerCell y={x.y} size={22} /><span className={`legend-chip ${divCls(x.key)}`} title="Color en el gráfico"></span></span></td>
                         <td>{f(x.gross)}</td>
                         <td className="neutral">{x.wh > 0 ? `-${f(x.wh)}` : '—'}</td>
                         <td className="p">{f(x.net)}</td>
@@ -1477,7 +1529,7 @@ function App() {
                     {dash.sales.rows.slice().reverse().map((x, k) => (
                       <tr key={k}>
                         <td className="strong">{fd(x.date)}</td>
-                        <td title={x.name}><span className="ticker-symbol">{x.y}</span></td>
+                        <td title={x.name}><TickerCell y={x.y} size={22} /></td>
                         <td>{x.q}</td>
                         <td>{f(x.amount)}</td>
                         <td className="neutral">{f(x.cost)}</td>

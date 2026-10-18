@@ -172,7 +172,15 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; whit
 .data-table tbody tr:hover td:first-child { background: var(--surface-hover); }
 .data-table tr.row-total td, .data-table tr.row-total:hover td { background: var(--surface-2); font-weight: 600; color: var(--text-main); }
 .empty-row { text-align: center !important; color: var(--text-muted); padding: 32px 16px !important; }
-.ticker-cell { display: flex; flex-direction: column; gap: 1px; }
+.ticker-cell { display: flex; align-items: center; gap: 10px; }
+.ticker-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.data-table td:not(:first-child) > .ticker-cell { justify-content: flex-end; }
+/* Logo de ticker: cuadro redondeado teñido con el color de la marca (--c) */
+.tlogo { flex: none; display: block; overflow: visible; }
+.tlogo-bg { fill: color-mix(in oklab, var(--c) 12%, var(--surface)); stroke: color-mix(in oklab, var(--c) 24%, transparent); stroke-width: 1; }
+.tlogo-text { fill: var(--c); font-family: var(--font-sans); font-weight: 600; letter-spacing: -.03em; }
+[data-theme='dark'] .tlogo-bg { fill: color-mix(in oklab, var(--c) 20%, var(--surface)); stroke: color-mix(in oklab, var(--c) 34%, transparent); }
+[data-theme='dark'] .tlogo-text { fill: color-mix(in oklab, var(--c) 60%, white); }
 .ticker-symbol { font: 500 12.5px var(--font-mono); color: var(--text-main); }
 .ticker-name { font-size: 12px; color: var(--text-dim); }
 .weight-cell { display: inline-flex; align-items: center; gap: 10px; justify-content: flex-end; }
@@ -230,7 +238,8 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; whit
 .wf-down, .legend-chip.wf-down { fill: var(--loss); background: var(--loss); }
 .wf-connector { stroke: var(--axis); stroke-width: 1; }
 .data-table tr.row-sub td:first-child { padding-left: 32px; color: var(--text-muted); }
-.ticker-legend { gap: 8px; }
+.ticker-legend { display: inline-flex; align-items: center; gap: 10px; }
+.price-source { align-items: center; }
 .table-toggle { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
 .table-toggle summary { cursor: pointer; font-size: 12.5px; color: var(--text-muted); list-style: none; display: inline-flex; align-items: center; gap: 6px; transition: color var(--t); }
 .table-toggle summary::before { content: '+'; font-family: var(--font-mono); }
