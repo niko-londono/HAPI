@@ -624,13 +624,35 @@ function App() {
   const tax = taxByYear.find(t => t.y === taxYear);
   const taxYearData = useMemo(() => computeYearDashboard(portfolioData, taxYear), [portfolioData, taxYear]);
 
-  // Vista Total: bolsa según los estados de Apex; crypto tal como la pestaña Crypto (costo de los lotes = capital)
+  // Vista Total por periodo (misma barra que Bolsa): bolsa según los estados de Apex; crypto tal como la pestaña Crypto.
+  // Crypto no tiene precio histórico: al inicio del periodo (y al final, si el periodo no llega al último mes) se valora a costo.
+  // Así siempre se cumple: valor final = valor inicial + capital aportado + ganancia.
   const total = useMemo(() => {
-    const netBolsa = portfolioData.D.reduce((t, r) => t + r[2] - r[3], 0);
-    const netCrypto = crypto.cost;
+    const R = portfolioData.R;
+    const first = selectedMonths[0].m;
+    const last = selectedMonths[selectedMonths.length - 1].m;
+    const isLatest = last === R[R.length - 1].m;
+    const startIdx = R.findIndex(r => r.m === first);
+    const bolsaStart = startIdx > 0 ? R[startIdx - 1].v : 0;
+    const bolsaVal = periodSummary.closingValue;
+    const netBolsa = periodSummary.deposited - periodSummary.withdrawn;
+    const bolsaGain = periodSummary.total;
+
+    // Crypto sin precio histórico: la ganancia del periodo es la de los lotes comprados en él.
+    // Lotes anteriores al periodo: a valor actual (si el periodo llega a hoy) o a costo (si termina antes).
+    const ym = d => d.slice(0, 7);
+    const sumBy = (arr, k) => arr.reduce((t, l) => t + l[k], 0);
+    const preLots = crypto.lots.filter(l => ym(l.date) < first);
+    const lotsIn = crypto.lots.filter(l => ym(l.date) >= first && ym(l.date) <= last);
+    const netCrypto = sumBy(lotsIn, 'cost');
+    const cryptoStart = isLatest ? sumBy(preLots, 'mv') : sumBy(preLots, 'cost');
+    const cryptoVal = isLatest ? crypto.mv : sumBy(crypto.lots.filter(l => ym(l.date) <= last), 'cost');
+    const cryptoGain = !isLatest ? 0 : lotsIn.length === crypto.lots.length ? crypto.gain : sumBy(lotsIn, 'gain');
+
     const capital = netBolsa + netCrypto;
-    const bolsaVal = portfolioData.totalClosingVal;
-    const value = bolsaVal + crypto.mv;
+    const startValue = bolsaStart + cryptoStart;
+    const value = bolsaVal + cryptoVal;
+    const gain = bolsaGain + cryptoGain;
     const holdings = portfolioData.positionsRows
       .filter(r => r.q > 0)
       .map(r => ({ key: r.y, name: r.name, account: 'Bolsa', v: r.v }))
@@ -639,22 +661,30 @@ function App() {
         { key: 'Efectivo', name: 'FDIC / margen', account: 'Bolsa', v: portfolioData.cashFdic }
       ])
       .sort((a, b) => b.v - a.v)
-      .map(h => ({ ...h, pct: (h.v / value) * 100 }));
+      .map(h => ({ ...h, pct: (h.v / totalWealth) * 100 })); // distribución actual (hoy), no depende del periodo
     return {
+      first,
+      last,
+      isLatest,
+      startValue,
       capital,
       netBolsa,
       netCrypto,
+      lotsInCount: lotsIn.length,
       bolsaVal,
+      cryptoVal,
       value,
-      gain: value - capital,
-      gainPct: ((value - capital) / capital) * 100,
-      bolsaGain: bolsaVal - netBolsa,
-      cryptoGain: crypto.mv - netCrypto,
+      gain,
+      gainPct: startValue + capital > 0 ? (gain / (startValue + capital)) * 100 : 0,
+      bolsaGain,
+      bolsaGainPct: (bolsaGain / periodSummary.base) * 100,
+      cryptoGain,
+      cryptoGainPct: netCrypto > 0 ? (cryptoGain / netCrypto) * 100 : 0,
       bolsaPct: (bolsaVal / value) * 100,
-      cryptoPct: (crypto.mv / value) * 100,
+      cryptoPct: (cryptoVal / value) * 100,
       holdings
     };
-  }, [portfolioData, crypto]);
+  }, [portfolioData, crypto, selectedMonths, periodSummary, totalWealth]);
 
   const applyBtcPrice = next => {
     setBtcPrice(next);
@@ -1116,15 +1146,21 @@ function App() {
       {/* VISTA 3: TOTAL (BOLSA + CRYPTO) */}
       {activeTab === 'total' && (
         <section aria-label="Total">
+          {/* BARRA DE PERÍODOS (compartida con Bolsa) */}
           <div className="toolbar">
+            <div className="segmented" role="group" aria-label="Periodo">
+              {periodKeys.map(k => (
+                <button key={k} className={period === k ? 'active' : ''} onClick={() => setPeriod(k)}>{k}</button>
+              ))}
+            </div>
             <div className="toolbar-note">
-              {`Bolsa al 30 sep 2026 · crypto ${crypto.live ? (btcPrice.source === 'manual' ? 'a precio manual' : 'a precio en vivo') : `al ${fd(crypto.cutDate)}`}`}
+              {`${lab(total.first)} – ${lab(total.last)} · ${selectedMonths.length} ${selectedMonths.length > 1 ? 'meses' : 'mes'} · crypto ${!total.isLatest ? 'a costo' : crypto.live ? (btcPrice.source === 'manual' ? 'a precio manual' : 'en vivo') : `al ${fd(crypto.cutDate)}`}`}
             </div>
           </div>
 
           <div className="kpi-grid">
             <div className="card kpi hero reveal" style={{ '--i': 0 }}>
-              <span className="kpi-label">Patrimonio total</span>
+              <span className="kpi-label">{total.isLatest ? 'Patrimonio total' : `Patrimonio al cierre de ${lab(total.last)}`}</span>
               <div className="hero-line">
                 <b className="kpi-val hero-val">{f(total.value)}</b>
                 <span className={`tag ${cls(total.gain)}`}>{`${sg(total.gain)} · ${pc(total.gainPct)}`}</span>
@@ -1140,21 +1176,29 @@ function App() {
                 </div>
               </div>
               <div className="hero-stats">
+                <div className="hero-stat"><span>Inicio del periodo</span><b>{f(total.startValue)}</b></div>
                 <div className="hero-stat"><span>Capital aportado</span><b>{f(total.capital)}</b></div>
-                <div className="hero-stat"><span>Ganancia total</span><b className={cls(total.gain)}>{sg(total.gain)}</b></div>
-                <div className="hero-stat"><span>Activos</span><b>{total.holdings.length - 1} + efectivo</b></div>
+                <div className="hero-stat"><span>Ganancia del periodo</span><b className={cls(total.gain)}>{sg(total.gain)}</b></div>
               </div>
-              <p className="footnote">Capital aportado = aportado neto a la bolsa + invertido en los lotes de BTC.</p>
+              <p className="footnote">
+                {`Valor final = inicio + capital aportado + ganancia. Capital = aportado neto a la bolsa + lotes de BTC comprados en el periodo. ${total.isLatest
+                  ? 'Sin precio histórico de BTC, la ganancia crypto del periodo es la de los lotes comprados en él.'
+                  : 'Sin precio histórico de BTC, la crypto se valora a costo y no suma ganancia en este periodo.'}`}
+              </p>
             </div>
             <div className="card kpi reveal" style={{ '--i': 1 }}>
               <span className="kpi-label">Bolsa</span>
               <b className="kpi-val">{f(total.bolsaVal)}</b>
-              <span className={`tag ${cls(total.bolsaGain)}`}>{`${sg(total.bolsaGain)} · ${pc((total.bolsaGain / total.netBolsa) * 100)}`}</span>
+              <span className={`tag ${cls(total.bolsaGain)}`}>{`${sg(total.bolsaGain)} · ${pc(total.bolsaGainPct)}`}</span>
             </div>
             <div className="card kpi reveal" style={{ '--i': 2 }}>
               <span className="kpi-label">Crypto</span>
-              <b className="kpi-val">{f(crypto.mv)}</b>
-              <span className={`tag ${cls(total.cryptoGain)}`}>{`${sg(total.cryptoGain)} · ${pc((total.cryptoGain / total.netCrypto) * 100)}`}</span>
+              <b className="kpi-val">{f(total.cryptoVal)}</b>
+              {!total.isLatest
+                ? <span className="kpi-meta">a costo (sin precio histórico)</span>
+                : total.lotsInCount
+                  ? <span className={`tag ${cls(total.cryptoGain)}`}>{`${sg(total.cryptoGain)} · ${pc(total.cryptoGainPct)}`}</span>
+                  : <span className="kpi-meta">sin compras en el periodo</span>}
             </div>
             <div className="card kpi reveal" style={{ '--i': 3 }}>
               <span className="kpi-label">Aportado a bolsa (neto)</span>
@@ -1164,14 +1208,14 @@ function App() {
             <div className="card kpi reveal" style={{ '--i': 4 }}>
               <span className="kpi-label">Invertido en crypto</span>
               <b className="kpi-val">{f(total.netCrypto)}</b>
-              <span className="kpi-meta">{`costo de ${crypto.lots.length} lotes de BTC`}</span>
+              <span className="kpi-meta">{total.lotsInCount ? `${total.lotsInCount} ${total.lotsInCount > 1 ? 'lotes' : 'lote'} de BTC en el periodo` : 'sin compras en el periodo'}</span>
             </div>
           </div>
 
           {/* DISTRIBUCIÓN DEL PATRIMONIO */}
           <div className="section reveal">
             <div className="section-header">
-              <h2 className="section-title">Distribución <span className="section-sub">{total.holdings.length} partidas · % del patrimonio</span></h2>
+              <h2 className="section-title">Distribución actual <span className="section-sub">{total.holdings.length} partidas · % del patrimonio de hoy</span></h2>
             </div>
             <div className="card table-card">
               <div className="table-scroll">
@@ -1206,7 +1250,7 @@ function App() {
                     <tr className="row-total">
                       <td>Total</td>
                       <td></td>
-                      <td>{f(total.value)}</td>
+                      <td>{f(totalWealth)}</td>
                       <td>100%</td>
                     </tr>
                   </tbody>
@@ -1215,6 +1259,7 @@ function App() {
             </div>
             <p className="note">
               Bolsa según los estados de cuenta de Apex; crypto tal como aparece en la pestaña Crypto (lotes de BTC a su costo y al precio vigente).
+              La barra de periodos es la misma de la pestaña Bolsa (cambiarla aquí también la cambia allá). Esta tabla siempre muestra la distribución de hoy.
               Las fechas no coinciden: la bolsa es el cierre del 30 sep 2026 y crypto {crypto.live ? 'usa el precio actual' : `el corte del ${fd(crypto.cutDate)}`}.
             </p>
           </div>
