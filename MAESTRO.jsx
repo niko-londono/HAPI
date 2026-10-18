@@ -425,10 +425,10 @@ function App() {
   const crypto = useMemo(() => computeCrypto(btcPrice.spot), [btcPrice]);
   const totalWealth = portfolioData.totalClosingVal + crypto.mv;
 
-  // Vista Total: todo el dinero entra por la bolsa (aportes HAPI); lo que pasa a Bakkt es capital de crypto
+  // Vista Total: bolsa según los estados de Apex; crypto tal como la pestaña Crypto (costo de los lotes = capital)
   const total = useMemo(() => {
     const netBolsa = portfolioData.D.reduce((t, r) => t + r[2] - r[3], 0);
-    const netCrypto = crypto.withdrawn - crypto.returned;
+    const netCrypto = crypto.cost;
     const capital = netBolsa + netCrypto;
     const bolsaVal = portfolioData.totalClosingVal;
     const value = bolsaVal + crypto.mv;
@@ -935,7 +935,7 @@ function App() {
                 <div className="hero-stat"><span>Ganancia total</span><b className={cls(total.gain)}>{sg(total.gain)}</b></div>
                 <div className="hero-stat"><span>Activos</span><b>{total.holdings.length - 1} + efectivo</b></div>
               </div>
-              <p className="footnote">Capital aportado = todo lo que entró desde HAPI. Lo que pasó a Bakkt cuenta como capital de crypto, no como retiro.</p>
+              <p className="footnote">Capital aportado = aportado neto a la bolsa + invertido en los lotes de BTC.</p>
             </div>
             <div className="card kpi reveal" style={{ '--i': 1 }}>
               <span className="kpi-label">Bolsa</span>
@@ -953,9 +953,9 @@ function App() {
               <span className="kpi-meta">aportes − traspasos a Bakkt</span>
             </div>
             <div className="card kpi reveal" style={{ '--i': 4 }}>
-              <span className="kpi-label">Traspasado a crypto (neto)</span>
+              <span className="kpi-label">Invertido en crypto</span>
               <b className="kpi-val">{f(total.netCrypto)}</b>
-              <span className="kpi-meta">{`invertido en lotes ${f(crypto.cost)}`}</span>
+              <span className="kpi-meta">{`costo de ${crypto.lots.length} lotes de BTC`}</span>
             </div>
           </div>
 
@@ -1005,9 +1005,8 @@ function App() {
               </div>
             </div>
             <p className="note">
-              En esta vista la ganancia de crypto se mide contra lo traspasado desde la bolsa ({f(total.netCrypto)}), no contra el costo de los lotes ({f(crypto.cost)}):
-              por eso es {sg(total.cryptoGain)} y no {sg(crypto.gain)}. La diferencia son spreads y {f(crypto.unmatched)} traspasados sin lote asociado (pendiente de confirmar).
-              Las fechas no coinciden: la bolsa es el cierre del 30 sep 2026 y crypto el corte del {fd(crypto.cutDate)}.
+              Bolsa según los estados de cuenta de Apex; crypto tal como aparece en la pestaña Crypto (lotes de BTC a su costo y al precio vigente).
+              Las fechas no coinciden: la bolsa es el cierre del 30 sep 2026 y crypto {crypto.live ? 'usa el precio actual' : `el corte del ${fd(crypto.cutDate)}`}.
             </p>
           </div>
         </section>
