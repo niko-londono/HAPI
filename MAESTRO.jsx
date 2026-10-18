@@ -304,6 +304,171 @@ function CryptoLotsChart({ crypto, f, fd, pc }) {
   );
 }
 
+// --- COMPONENTE: BARRAS MENSUALES (apiladas o simples, admite negativos) ---
+// data = [{ m, segs: [{ key, v, cls }], tip: [[etiqueta, valor, clase]] }]
+function MonthlyBars({ data, lab, ariaLabel, valueLabel }) {
+  const [tip, setTip] = useState(null);
+  const [wrapRef, width] = useWidth();
+  useEffect(() => { setTip(null); }, [data]);
+
+  const n = data.length;
+  const W = Math.max(300, width || 900);
+  const compact = W < 560;
+  const L = compact ? 46 : 56;
+  const RP = 12;
+  const TOP = 22;
+  const hP = compact ? 170 : 210;
+  const BOT = 26;
+  const H = TOP + hP + BOT;
+  const step = (W - L - RP) / n;
+  const bw = Math.min(30, Math.max(8, step * 0.52));
+
+  const stacks = data.map(d => {
+    let pos = 0;
+    let neg = 0;
+    return d.segs.filter(s => Math.abs(s.v) > 1e-9).map(s => {
+      const y0 = s.v >= 0 ? pos : neg;
+      const y1 = y0 + s.v;
+      if (s.v >= 0) pos = y1; else neg = y1;
+      return { ...s, y0, y1 };
+    });
+  });
+  const totals = data.map(d => d.segs.reduce((t, s) => t + s.v, 0));
+  const ext = stacks.flat().flatMap(s => [s.y0, s.y1]);
+  const tk = niceTicks(Math.min(0, ...ext), Math.max(0, ...ext, 1), compact ? 3 : 4);
+  const y = v => TOP + hP * (1 - (v - tk.min) / (tk.max - tk.min));
+  const xC = i => L + step * (i + 0.5);
+  const labelEvery = Math.max(1, Math.ceil(44 / step));
+  // Etiqueta directa solo en el extremo (el mayor valor absoluto)
+  const peak = totals.reduce((b, v, i) => (Math.abs(v) > Math.abs(totals[b]) ? i : b), 0);
+  const d = tip != null ? data[tip] : null;
+
+  return (
+    <div className="svg-chart-wrapper" ref={wrapRef} onMouseLeave={() => setTip(null)}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={ariaLabel}>
+        {tk.ticks.map(v => (
+          <g key={v}>
+            <line className={v === 0 ? 'chart-zero' : 'chart-grid'} x1={L} x2={W - RP} y1={y(v)} y2={y(v)} />
+            <text className="chart-axis" x={L - 8} y={y(v) + 4} textAnchor="end">{axisLabel(v)}</text>
+          </g>
+        ))}
+        {stacks.map((segs, i) => segs.map(s => (
+          <rect
+            key={`${i}-${s.key}`}
+            className={`mbar ${s.cls}`}
+            x={xC(i) - bw / 2}
+            y={Math.min(y(s.y0), y(s.y1))}
+            width={bw}
+            height={Math.max(1, Math.abs(y(s.y0) - y(s.y1)))}
+            rx="2"
+            opacity={tip == null || tip === i ? 1 : 0.4}
+          />
+        )))}
+        {Math.abs(totals[peak]) > 0 && (
+          <text className="chart-peak-label" x={xC(peak)} y={totals[peak] >= 0 ? y(totals[peak]) - 7 : y(totals[peak]) + 15} textAnchor="middle">{valueLabel(totals[peak])}</text>
+        )}
+        {data.map((r, i) => (n - 1 - i) % labelEvery === 0 && (
+          <text key={`lb${i}`} className="chart-xlabel" x={xC(i)} y={H - 8} textAnchor="middle">{lab(r.m)}</text>
+        ))}
+        {data.map((r, i) => (
+          <rect key={`hit${i}`} x={L + step * i} y={TOP} width={step} height={hP} fill="transparent" onMouseMove={() => setTip(i)} onClick={() => setTip(i)} />
+        ))}
+      </svg>
+      {d && (
+        <div className={`chart-tooltip ${tip > n / 2 ? 'left' : ''}`} style={{ left: xC(tip) + (tip > n / 2 ? -14 : 14) }}>
+          <div className="tooltip-header">{lab(d.m)}</div>
+          {d.tip.map(([label, val, c], k) => (
+            <div className="tooltip-row" key={k}><span>{label}</span><span className={c || ''}>{val}</span></div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- COMPONENTE: CASCADA (de dónde salió el crecimiento del año) ---
+// steps = [{ label, v, kind: 'total' | 'delta', share }]
+function Waterfall({ steps, f, sg }) {
+  const [tip, setTip] = useState(null);
+  const [wrapRef, width] = useWidth();
+  useEffect(() => { setTip(null); }, [steps]);
+
+  const n = steps.length;
+  const W = Math.max(300, width || 900);
+  const compact = W < 560;
+  const L = compact ? 46 : 56;
+  const RP = 12;
+  const TOP = 24;
+  const hP = compact ? 190 : 230;
+  const BOT = 40;
+  const H = TOP + hP + BOT;
+  const step = (W - L - RP) / n;
+  const bw = Math.min(56, step * 0.6);
+
+  let run = 0;
+  const bars = steps.map(s => {
+    if (s.kind === 'total') {
+      run = s.v;
+      return { ...s, y0: 0, y1: s.v };
+    }
+    const y0 = run;
+    run += s.v;
+    return { ...s, y0, y1: run };
+  });
+  const ext = bars.flatMap(b => [b.y0, b.y1]);
+  const tk = niceTicks(Math.min(0, ...ext), Math.max(0, ...ext, 1), compact ? 3 : 4);
+  const y = v => TOP + hP * (1 - (v - tk.min) / (tk.max - tk.min));
+  const xC = i => L + step * (i + 0.5);
+  const b = tip != null ? bars[tip] : null;
+
+  return (
+    <div className="svg-chart-wrapper" ref={wrapRef} onMouseLeave={() => setTip(null)}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Cascada del crecimiento del portafolio">
+        {tk.ticks.map(v => (
+          <g key={v}>
+            <line className={v === 0 ? 'chart-zero' : 'chart-grid'} x1={L} x2={W - RP} y1={y(v)} y2={y(v)} />
+            <text className="chart-axis" x={L - 8} y={y(v) + 4} textAnchor="end">{axisLabel(v)}</text>
+          </g>
+        ))}
+        {bars.map((s, i) => i < n - 1 && (
+          <line key={`c${i}`} className="wf-connector" x1={xC(i) + bw / 2} x2={xC(i + 1) - bw / 2} y1={y(s.y1)} y2={y(s.y1)} />
+        ))}
+        {bars.map((s, i) => {
+          const cls = s.kind === 'total' ? 'wf-total' : s.v >= 0 ? 'wf-up' : 'wf-down';
+          const top = Math.min(y(s.y0), y(s.y1));
+          return (
+            <g key={s.label} opacity={tip == null || tip === i ? 1 : 0.45}>
+              <rect className={cls} x={xC(i) - bw / 2} y={top} width={bw} height={Math.max(1, Math.abs(y(s.y0) - y(s.y1)))} rx="2" />
+              <text className="chart-peak-label" x={xC(i)} y={top - 7} textAnchor="middle">
+                {compact ? axisLabel(Math.round(s.v)) : s.kind === 'total' ? f(s.v) : sg(s.v)}
+              </text>
+            </g>
+          );
+        })}
+        {bars.map((s, i) => (
+          <text key={`l${i}`} className="chart-xlabel" x={xC(i)} y={TOP + hP + 16 + (compact && i % 2 ? 14 : 0)} textAnchor="middle">
+            {/* Máximo 2 líneas: primera palabra / resto; en pantallas angostas, la etiqueta corta */}
+            {(compact ? [s.short || s.label] : s.label.includes(' ') ? [s.label.split(' ')[0], s.label.split(' ').slice(1).join(' ')] : [s.label]).map((w, k) => (
+              <tspan key={k} x={xC(i)} dy={k ? 12 : 0}>{w}</tspan>
+            ))}
+          </text>
+        ))}
+        {bars.map((s, i) => (
+          <rect key={`h${i}`} x={L + step * i} y={TOP} width={step} height={hP} fill="transparent" onMouseMove={() => setTip(i)} onClick={() => setTip(i)} />
+        ))}
+      </svg>
+      {b && (
+        <div className={`chart-tooltip ${tip > n / 2 ? 'left' : ''}`} style={{ left: xC(tip) + (tip > n / 2 ? -14 : 14) }}>
+          <div className="tooltip-header">{b.label}</div>
+          <div className="tooltip-row"><span>Monto</span><span className={b.kind === 'total' ? '' : b.v >= 0 ? 'p' : 'n'}>{b.kind === 'total' ? f(b.v) : sg(b.v)}</span></div>
+          {b.share != null && <div className="tooltip-row"><span>% del crecimiento</span><span>{`${b.share.toFixed(1)}%`}</span></div>}
+          {b.kind === 'delta' && <div className="tooltip-row"><span>Acumulado</span><span>{f(b.y1)}</span></div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- COMPONENTE PRINCIPAL: APP ---
 function App() {
   const engine = window.HapiEngine;
@@ -321,6 +486,8 @@ function App() {
     dt,
     computePortfolioData,
     getPeriodSummary,
+    getYears,
+    computeYearDashboard,
     computeCrypto,
     fetchBtcSpot,
     loadBtcStorage,
@@ -383,7 +550,7 @@ function App() {
 
   // Título de la pestaña del navegador según la vista
   useEffect(() => {
-    document.title = `${{ bolsa: 'Bolsa', crypto: 'Crypto', total: 'Total' }[activeTab]} · HAPI`;
+    document.title = `${{ bolsa: 'Bolsa', crypto: 'Crypto', total: 'Total', dashboard: 'Dashboard' }[activeTab]} · HAPI`;
   }, [activeTab]);
 
   // Cálculo del Período seleccionado
@@ -424,6 +591,15 @@ function App() {
   // Cálculo de Crypto
   const crypto = useMemo(() => computeCrypto(btcPrice.spot), [btcPrice]);
   const totalWealth = portfolioData.totalClosingVal + crypto.mv;
+
+  // Dashboard anual (bolsa)
+  const years = useMemo(() => getYears(portfolioData), [portfolioData]);
+  const [dashYear, setDashYear] = useState(() => years[years.length - 1]);
+  const dash = useMemo(() => computeYearDashboard(portfolioData, dashYear), [portfolioData, dashYear]);
+  const divCls = k => (k === 'Otros' ? 's-other' : `s${['VOO', 'MSFT', 'META', 'QQQ', 'TQQQ'].indexOf(k) + 1}`);
+  const share = v => (dash.growth !== 0 ? (v / dash.growth) * 100 : 0);
+  const sharePct = v => { const s = share(v); return `${Math.abs(s) < 0.05 ? '0.0' : s.toFixed(1)}%`; };
+  const endLabel = dash.lastMonth.endsWith('-12') ? 'Cierre' : `Corte ${lab(dash.lastMonth)}`;
 
   // Vista Total: bolsa según los estados de Apex; crypto tal como la pestaña Crypto (costo de los lotes = capital)
   const total = useMemo(() => {
@@ -509,7 +685,9 @@ function App() {
                 ? 'Bolsa · Apex Clearing · jun 2025 – sep 2026 · USD'
                 : activeTab === 'crypto'
                   ? `Crypto · Bakkt · corte ${fd(crypto.cutDate)} · USD`
-                  : `Total · bolsa + crypto · USD`}
+                  : activeTab === 'total'
+                    ? `Total · bolsa + crypto · USD`
+                    : `Dashboard · bolsa · ${dashYear} · USD`}
             </div>
           </div>
         </div>
@@ -531,6 +709,9 @@ function App() {
         </button>
         <button className={`tab-btn ${activeTab === 'total' ? 'active' : ''}`} onClick={() => setActiveTab('total')}>
           Total <span className="tab-count">bolsa + crypto</span>
+        </button>
+        <button className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+          Dashboard <span className="tab-count">por año</span>
         </button>
       </nav>
 
@@ -1008,6 +1189,284 @@ function App() {
               Bolsa según los estados de cuenta de Apex; crypto tal como aparece en la pestaña Crypto (lotes de BTC a su costo y al precio vigente).
               Las fechas no coinciden: la bolsa es el cierre del 30 sep 2026 y crypto {crypto.live ? 'usa el precio actual' : `el corte del ${fd(crypto.cutDate)}`}.
             </p>
+          </div>
+        </section>
+      )}
+      {/* VISTA 4: DASHBOARD ANUAL (BOLSA) */}
+      {activeTab === 'dashboard' && (
+        <section aria-label="Dashboard">
+          {/* FILTRO POR AÑO: una sola fila que controla todo el dashboard */}
+          <div className="toolbar">
+            <div className="segmented" role="group" aria-label="Año">
+              {years.map(y => (
+                <button key={y} className={dashYear === y ? 'active' : ''} aria-pressed={dashYear === y} onClick={() => setDashYear(y)}>{y}</button>
+              ))}
+            </div>
+            <div className="toolbar-note">
+              {`${lab(dash.firstMonth)} – ${lab(dash.lastMonth)} · ${dash.months.length} ${dash.months.length > 1 ? 'meses' : 'mes'} · bolsa`}
+            </div>
+          </div>
+
+          {/* 1. CRECIMIENTO DEL PORTAFOLIO */}
+          <div className="kpi-grid">
+            <div className="card kpi hero reveal" style={{ '--i': 0 }}>
+              <span className="kpi-label">{`Crecimiento en ${dashYear}`}</span>
+              <div className="hero-line">
+                <b className="kpi-val hero-val">{sg(dash.growth)}</b>
+                {dash.growthPct != null && <span className={`tag ${cls(dash.growth)}`}>{pc(dash.growthPct)}</span>}
+              </div>
+              <div className="hero-stats">
+                <div className="hero-stat"><span>{dash.startValue > 0 ? `Inicio (${lab(`${+dashYear - 1}-12`)})` : 'Inicio'}</span><b>{f(dash.startValue)}</b></div>
+                <div className="hero-stat"><span>{endLabel}</span><b>{f(dash.endValue)}</b></div>
+                <div className="hero-stat"><span>Ganancia del año</span><b className={cls(dash.growth - dash.parts.deposits - dash.parts.toCrypto)}>{sg(dash.growth - dash.parts.deposits - dash.parts.toCrypto)}</b></div>
+              </div>
+              <p className="footnote">
+                {dash.startValue > 0
+                  ? 'Crecimiento = valor al corte − valor al inicio del año. Incluye depósitos; la ganancia del año los excluye.'
+                  : 'La cuenta se abrió en jun 2025: el año parte de $0, así que no hay % de crecimiento.'}
+              </p>
+            </div>
+            {[
+              ['Depósitos netos', dash.parts.deposits + dash.parts.toCrypto, 'aportes − traspasos a crypto'],
+              ['Ventas de acciones', dash.parts.realized, 'ganancia realizada'],
+              ['Dividendos y cargos', dash.parts.dv, 'dividendos netos − intereses de margen'],
+              ['No realizada', dash.parts.unrealized, 'variación de precio en cartera']
+            ].map(([label, v, meta], i) => (
+              <div className="card kpi reveal" style={{ '--i': i + 1 }} key={label}>
+                <span className="kpi-label">{label}</span>
+                <b className={`kpi-val ${i ? cls(v) : ''}`}>{i ? sg(v) : f(v)}</b>
+                <span className="tag">{`${sharePct(v)} del crecimiento`}</span>
+                <span className="kpi-meta">{meta}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="card chart-card reveal">
+            <div className="card-head">
+              <h3 className="card-title">{`De dónde salió el crecimiento · ${dashYear}`}</h3>
+              <div className="chart-legend">
+                <span className="legend-item"><span className="legend-chip wf-total"></span>Valor del portafolio</span>
+                <span className="legend-item"><span className="legend-chip wf-up"></span>Suma</span>
+                <span className="legend-item"><span className="legend-chip wf-down"></span>Resta</span>
+              </div>
+            </div>
+            <Waterfall
+              f={f}
+              sg={sg}
+              steps={[
+                { label: 'Inicio', short: 'Inicio', v: dash.startValue, kind: 'total' },
+                { label: 'Depósitos', short: 'Dep.', v: dash.parts.deposits, kind: 'delta', share: share(dash.parts.deposits) },
+                { label: 'A crypto', short: 'Crypto', v: dash.parts.toCrypto, kind: 'delta', share: share(dash.parts.toCrypto) },
+                { label: 'Ventas', short: 'Ventas', v: dash.parts.realized, kind: 'delta', share: share(dash.parts.realized) },
+                { label: 'Dividendos y cargos', short: 'Div.', v: dash.parts.dv, kind: 'delta', share: share(dash.parts.dv) },
+                { label: 'No realizada', short: 'No real.', v: dash.parts.unrealized, kind: 'delta', share: share(dash.parts.unrealized) },
+                { label: endLabel, short: dash.lastMonth.endsWith('-12') ? 'Cierre' : 'Corte', v: dash.endValue, kind: 'total' }
+              ]}
+            />
+          </div>
+
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Origen del crecimiento <span className="section-sub">{`${f(dash.startValue)} → ${f(dash.endValue)}`}</span></h2>
+            </div>
+            <div className="card table-card">
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Componente</th><th>Monto</th><th>% del crecimiento</th></tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ['Depósitos desde HAPI', dash.parts.deposits, ''],
+                      ['Traspasos a crypto (Bakkt)', dash.parts.toCrypto, ''],
+                      ['Ganancia realizada', dash.parts.realized + dash.parts.dv, ''],
+                      ['Ventas de acciones', dash.parts.realized, 'sub'],
+                      ['Dividendos netos', dash.parts.divNet, 'sub'],
+                      ...(Math.abs(dash.parts.charges) > 0.004 ? [['Intereses y cargos de margen', dash.parts.charges, 'sub']] : []),
+                      ['No realizada', dash.parts.unrealized, '']
+                    ].map(([label, v, kind]) => (
+                      <tr key={label} className={kind === 'sub' ? 'row-sub' : ''}>
+                        <td className={kind === 'sub' ? '' : 'strong'}>{label}</td>
+                        <td className={cls(v)}>{sg(v)}</td>
+                        <td>{sharePct(v)}</td>
+                      </tr>
+                    ))}
+                    <tr className="row-total">
+                      <td>Crecimiento total</td>
+                      <td>{sg(dash.growth)}</td>
+                      <td>100%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. DIVIDENDOS POR MES */}
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Dividendos por mes <span className="section-sub">{`${dash.dividends.rows.length} pagos · neto de retención`}</span></h2>
+            </div>
+            <div className="kpi-row">
+              <div className="card kpi"><span className="kpi-label">Neto recibido</span><b className="kpi-val">{f(dash.dividends.net)}</b><span className="kpi-meta">{`promedio ${f(dash.dividends.net / dash.months.length)} / mes`}</span></div>
+              <div className="card kpi"><span className="kpi-label">Bruto</span><b className="kpi-val">{f(dash.dividends.gross)}</b><span className="kpi-meta">antes de retención</span></div>
+              <div className="card kpi"><span className="kpi-label">Retención (~30%)</span><b className="kpi-val">{f(dash.dividends.wh)}</b><span className="kpi-meta">impuesto a no residentes</span></div>
+              <div className="card kpi"><span className="kpi-label">Mejor mes</span><b className="kpi-val">{dash.dividends.best ? f(dash.dividends.best.divNet) : '—'}</b><span className="kpi-meta">{dash.dividends.best ? lab(dash.dividends.best.m) : 'sin dividendos'}</span></div>
+            </div>
+            <div className="card chart-card">
+              <div className="card-head">
+                <h3 className="card-title">Neto por mes y acción</h3>
+                <div className="chart-legend">
+                  {dash.dividends.keys.map(k => (
+                    <span className="legend-item" key={k}><span className={`legend-chip ${divCls(k)}`}></span>{k === 'Otros' ? 'Otros (GOOGL, NVDA, SCHD, VT)' : k}</span>
+                  ))}
+                </div>
+              </div>
+              <MonthlyBars
+                lab={lab}
+                ariaLabel="Dividendos netos por mes y acción"
+                valueLabel={f}
+                data={dash.months.map(r => ({
+                  m: r.m,
+                  segs: dash.dividends.keys.map(k => ({ key: k, v: r.divByKey[k] || 0, cls: divCls(k) })),
+                  tip: r.divs.length
+                    ? r.divs.map(x => [x.y, f(x.net)]).concat([['Total del mes', f(r.divNet)]])
+                    : [['Sin dividendos', '—']]
+                }))}
+              />
+            </div>
+            <div className="card table-card">
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Fecha</th><th>Acción</th><th>Bruto</th><th>Retención</th><th>Neto</th></tr>
+                  </thead>
+                  <tbody>
+                    {dash.dividends.rows.slice().reverse().map((x, k) => (
+                      <tr key={k}>
+                        <td className="strong">{fd(x.date)}</td>
+                        <td><span className="legend-item ticker-legend"><span className={`legend-chip ${divCls(x.key)}`}></span><span className="ticker-symbol">{x.y}</span></span></td>
+                        <td>{f(x.gross)}</td>
+                        <td className="neutral">{x.wh > 0 ? `-${f(x.wh)}` : '—'}</td>
+                        <td className="p">{f(x.net)}</td>
+                      </tr>
+                    ))}
+                    {dash.dividends.rows.length === 0 && <tr><td colSpan={5} className="empty-row">No hubo dividendos este año.</td></tr>}
+                    <tr className="row-total">
+                      <td>Total</td><td></td><td>{f(dash.dividends.gross)}</td><td>{`-${f(dash.dividends.wh)}`}</td><td>{f(dash.dividends.net)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. VENTAS REALIZADAS POR MES */}
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Ventas por mes <span className="section-sub">{`${dash.sales.count} ventas · ${dash.sales.winners} con ganancia`}</span></h2>
+            </div>
+            <div className="kpi-row">
+              <div className="card kpi"><span className="kpi-label">Ganancia realizada</span><b className={`kpi-val ${cls(dash.sales.realized)}`}>{sg(dash.sales.realized)}</b><span className="kpi-meta">{`${dash.sales.count} ventas en ${dash.months.length} meses`}</span></div>
+              <div className="card kpi"><span className="kpi-label">Promedio mensual</span><b className={`kpi-val ${cls(dash.sales.avgMonthly)}`}>{sg(dash.sales.avgMonthly)}</b><span className={`tag ${cls(dash.sales.avgMonthlyPct)}`}>{`${pc(dash.sales.avgMonthlyPct)} / mes`}</span></div>
+              <div className="card kpi"><span className="kpi-label">Rendimiento sobre lo vendido</span><b className={`kpi-val ${cls(dash.sales.onCostPct)}`}>{pc(dash.sales.onCostPct)}</b><span className="kpi-meta">ganancia ÷ costo de lo vendido</span></div>
+              <div className="card kpi"><span className="kpi-label">Ventas con ganancia</span><b className="kpi-val">{dash.sales.winners} <span className="kpi-of">de {dash.sales.count}</span></b><span className="kpi-meta">{dash.sales.count ? `${((dash.sales.winners / dash.sales.count) * 100).toFixed(0)}% de acierto` : '—'}</span></div>
+            </div>
+            <div className="card chart-card">
+              <div className="card-head">
+                <h3 className="card-title">Ganancia realizada por mes</h3>
+                <div className="chart-legend">
+                  <span className="legend-item"><span className="legend-chip pos"></span>Ganancia</span>
+                  <span className="legend-item"><span className="legend-chip neg"></span>Pérdida</span>
+                </div>
+              </div>
+              <MonthlyBars
+                lab={lab}
+                ariaLabel="Ganancia realizada por mes"
+                valueLabel={sg}
+                data={dash.months.map(r => ({
+                  m: r.m,
+                  segs: [{ key: 'rl', v: r.realized, cls: r.realized >= 0 ? 'pos' : 'neg' }],
+                  tip: r.sales.length
+                    ? r.sales.map(x => [`${x.y} · ${+x.q.toFixed(4)} acc.`, `${sg(x.gain)} (${pc(x.pct)})`, cls(x.gain)])
+                        .concat([['Total del mes', `${sg(r.realized)} · ${pc(r.realizedPct)}`, cls(r.realized)]])
+                    : [['Sin ventas', '—']]
+                }))}
+              />
+            </div>
+            <div className="card table-card">
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Fecha</th><th>Acción</th><th>Cantidad</th><th>Monto venta</th><th>Costo</th><th>Ganancia</th><th>%</th></tr>
+                  </thead>
+                  <tbody>
+                    {dash.sales.rows.slice().reverse().map((x, k) => (
+                      <tr key={k}>
+                        <td className="strong">{fd(x.date)}</td>
+                        <td title={x.name}><span className="ticker-symbol">{x.y}</span></td>
+                        <td>{x.q}</td>
+                        <td>{f(x.amount)}</td>
+                        <td className="neutral">{f(x.cost)}</td>
+                        <td className={cls(x.gain)}>{sg(x.gain)}</td>
+                        <td className={cls(x.gain)}>{pc(x.pct)}</td>
+                      </tr>
+                    ))}
+                    {dash.sales.rows.length === 0 && <tr><td colSpan={7} className="empty-row">No hubo ventas este año.</td></tr>}
+                    <tr className="row-total">
+                      <td>Total</td><td></td><td></td>
+                      <td>{f(dash.sales.rows.reduce((t, x) => t + x.amount, 0))}</td>
+                      <td>{f(dash.sales.rows.reduce((t, x) => t + x.cost, 0))}</td>
+                      <td className={cls(dash.sales.realized)}>{sg(dash.sales.realized)}</td>
+                      <td className={cls(dash.sales.realized)}>{pc(dash.sales.onCostPct)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <p className="note">
+              Promedio mensual = ganancia realizada del año ÷ {dash.months.length} meses con estado de cuenta. El % mensual es el promedio de cada mes sobre su capital promedio;
+              el rendimiento sobre lo vendido compara la ganancia con el costo promedio de las acciones vendidas.
+            </p>
+          </div>
+
+          {/* 4. DEPÓSITOS POR MES */}
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Depósitos por mes <span className="section-sub">aportes desde HAPI</span></h2>
+            </div>
+            <div className="kpi-row">
+              <div className="card kpi"><span className="kpi-label">Total depositado</span><b className="kpi-val">{f(dash.deposits.total)}</b><span className="kpi-meta">{`${dash.deposits.monthsWith} de ${dash.months.length} meses con depósito`}</span></div>
+              <div className="card kpi"><span className="kpi-label">Promedio mensual</span><b className="kpi-val">{f(dash.deposits.avgMonthly)}</b><span className="kpi-meta">{`sobre ${dash.months.length} meses`}</span></div>
+              <div className="card kpi"><span className="kpi-label">Mayor depósito</span><b className="kpi-val">{dash.deposits.max ? f(dash.deposits.max.deposits) : '—'}</b><span className="kpi-meta">{dash.deposits.max ? lab(dash.deposits.max.m) : '—'}</span></div>
+              <div className="card kpi"><span className="kpi-label">Traspasado a crypto</span><b className="kpi-val">{f(-dash.parts.toCrypto)}</b><span className="kpi-meta">sale de la bolsa hacia Bakkt</span></div>
+            </div>
+            <div className="card chart-card">
+              <div className="card-head">
+                <h3 className="card-title">Depositado por mes</h3>
+              </div>
+              <MonthlyBars
+                lab={lab}
+                ariaLabel="Depósitos por mes"
+                valueLabel={f}
+                data={dash.months.map(r => ({
+                  m: r.m,
+                  segs: [{ key: 'dep', v: r.deposits, cls: 'acc' }],
+                  tip: [['Depositado', f(r.deposits)]].concat(r.toCrypto ? [['Traspaso a crypto', sg(r.toCrypto), cls(r.toCrypto)]] : [])
+                }))}
+              />
+              <details className="table-toggle">
+                <summary>Ver como tabla</summary>
+                <table className="data-table">
+                  <thead><tr><th>Mes</th><th>Depositado</th><th>Traspaso a crypto</th></tr></thead>
+                  <tbody>
+                    {dash.months.map(r => (
+                      <tr key={r.m}><td className="strong">{lab(r.m)}</td><td>{f(r.deposits)}</td><td className={r.toCrypto ? cls(r.toCrypto) : 'neutral'}>{r.toCrypto ? sg(r.toCrypto) : '—'}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </details>
+            </div>
           </div>
         </section>
       )}

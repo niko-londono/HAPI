@@ -41,6 +41,12 @@
   // Tipos: B = Compra, S = Venta, X = Split
   const T_RAW = '250623,B,QQQ,.09505,50.15;250623,B,NDAQ,.23142,20.15;250623,B,SPY,.08421,50.15;250623,B,VOO,.0274,15.15;250624,S,NDAQ,.23142,19.88;250624,S,SPY,.08421,50.25;250625,B,QQQ,.01117,6.15;250625,B,SCHD,1.60262,42.9;250625,B,VT,.59739,75.55;250625,B,VOO,.17727,98.91;250718,S,SCHD,1.60262,43.05;250721,B,GOOGL,.23566,43.59;250722,B,GOOGL,.79765,151.17;250722,B,QQQ,.01591,9.14;250722,B,VT,.06389,8.49;250722,B,VOO,.03284,19.19;250903,B,QQQ,.01704,9.75;250903,B,NVDA,.11714,20.15;250903,B,VT,.11342,15.15;250923,B,QQQ,.1599,96.14;250923,B,NVDA,.38116,67.15;250923,B,VT,.70514,97.15;250923,B,VOO,.16318,100.15;250924,B,NVDA,.43905,79.15;251003,B,META,.06884,50.14;251007,B,META,.07135,50.4;251014,S,VT,1.47984,202.46;251015,B,VGT,.27224,202.45;251103,S,GOOGL,.5166,144.73;251103,S,VGT,.27224,216.82;251104,B,NFLX,.32139,361.61;251105,B,META,.2126,135;251110,B,QQQ,.18182,110.15;251110,B,VOO,.17817,109.15;251110,S,GOOGL,.51671,143.07;251114,B,META,.23342,143.77;251118,B,META,.66657,400.15;251118,B,QQQ,.65913,400.15;251118,X,NFLX,2.89251,0;251118,B,VOO,.8157,500.15;251204,B,NFLX,2.92261,300.01;251212,B,SPOT,.99717,600.15;260105,B,NFLX,1.08043,100.15;260105,B,TQQQ,9.6043,500.15;260108,B,SPOT,.34829,200.15;260112,S,TQQQ,9.6043,528.13;260115,B,TQQQ,10.0243,528.13;260116,S,TQQQ,10.0243,554.79;260130,B,TQQQ,9.34404,500.15;260203,B,GLD,.91455,400.15;260206,B,MSFT,.50005,200.15;260209,B,TQQQ,1.00623,50.15;260213,B,AMZN,.31746,64.15;260213,B,TQQQ,1.03299,50.55;260304,B,QQQ,.08347,49.7;260304,B,MSFT,.50632,200.15;260304,B,TQQQ,4.29507,200.15;260402,B,TQQQ,4.63338,200.15;260406,B,META,.3493,200.15;260410,S,AMZN,.31746,73.61;260414,S,NVDA,.93735,176.91;260414,S,TQQQ,17,846.02;260415,S,NFLX,5,527.62;260417,B,SPOT,.27917,150.15;260421,B,MSFT,.59792,250.15;260422,S,TQQQ,1.8,104.47;260424,B,MSFT,.60602,250.15;260429,B,SPOT,.3506,150.15;260501,B,META,.24847,150.15;260501,B,MSFT,.37395,150.15;260507,S,TQQQ,1.51171,105.1;260513,B,TQQQ,1.26294,93.15;260519,B,TQQQ,1.44912,107.15;260527,S,TQQQ,2.71206,219.91;260604,B,GLD,.27669,113.15;260608,B,TQQQ,4.57456,350.15;260608,B,TQQQ,5.64702,450.15;260616,S,TQQQ,10.22158,866.58;260623,B,GOOGL,.19564,68.74;260624,B,TQQQ,5.98838,450.15;260625,B,TQQQ,4.88179,350.15;260701,S,TQQQ,10.87017,867.2;260708,B,TQQQ,6.15782,450.15;260708,B,SMH,.1201,70.15;260709,B,TQQQ,4.98323,350.15;260710,S,TQQQ,11.14105,846.28;260714,B,TQQQ,7.51492,550.15;260717,B,GOOGL,.12795,46.15;260717,B,TQQQ,6.42144,450.15;260720,B,GOOGL,2.8937,1000.15;260724,B,MSFT,1.31282,500.15;260724,B,TQQQ,1.14265,75.22;260724,S,NFLX,2.21694,152.32;260724,S,SPOT,1.97523,922.89;260728,B,META,.83911,500.15;260731,S,MSFT,1.4,622.94;260804,B,TQQQ,.6431,42.15;260805,S,TQQQ,14.5,1080.14;260812,B,TQQQ,1.09923,80.15;260819,B,META,.72948,400.15;260821,B,TQQQ,5.66189,400.15;260825,B,SMH,.1587,87.14;260902,B,TQQQ,1.45734,100.15;260902,B,TQQQ,4.75162,325.15;260910,B,GOOGL,3.72872,1226.15;260910,S,META,1.9,1226;260922,S,TQQQ,14.19219,1084.6';
 
+  // Dividendos cobrados (formato: YYMMDD,Ticker,Bruto,Retención). Neto = bruto − retención (ver HAPI_estados_de_cuenta.md §4)
+  const DIV_RAW = '250630,SCHD,.42,.13;250702,VOO,.36,.11;250731,QQQ,.06,.02;250915,GOOGL,.22,.07;250923,VT,.37,.11;251001,VOO,.7,.21;251031,QQQ,.1,.03;251223,META,.66,.2;251224,VOO,2.47,.74;251226,NVDA,.01,0;251231,QQQ,.91,.27;260312,MSFT,.46,.14;260326,META,.66,.2;260327,QQQ,.9,.27;260331,TQQQ,1.12,.34;260331,VOO,2.61,.78;260401,NVDA,.01,0;260611,MSFT,2.35,.71;260625,META,.97,.29;260630,TQQQ,1.03,.31;260630,VOO,2.74,.82;260710,QQQ,1,.3;260910,MSFT,2.27,.68;260914,GOOGL,.71,.21;260928,META,.8,.24;260930,VOO,2.54,.76';
+
+  // Series fijas del gráfico de dividendos (el color sigue a la acción, nunca al ranking); el resto va a "Otros"
+  const DIV_KEYS = ['VOO', 'MSFT', 'META', 'QQQ', 'TQQQ'];
+
   // Nombres completos de los activos
   const N = {
     GOOGL: 'Alphabet',
@@ -318,6 +324,111 @@
     };
   }
 
+  // --- MOTOR DEL DASHBOARD ANUAL ---
+
+  const r2 = n => Math.round(n * 100) / 100;
+
+  // Años con estados de cuenta
+  function getYears(data) {
+    return [...new Set(data.R.map(r => r.m.slice(0, 4)))];
+  }
+
+  // Estadísticas de un año: crecimiento, dividendos, ventas y depósitos por mes
+  function computeYearDashboard(data, year) {
+    const idx = data.R.findIndex(r => r.m.startsWith(year));
+    const months = data.R.filter(r => r.m.startsWith(year));
+    const startValue = idx > 0 ? data.R[idx - 1].v : 0;
+    const endValue = months[months.length - 1].v;
+
+    // Entradas desde Bakkt (X negativos) vienen dentro de "depósitos" en D: se separan de los aportes HAPI
+    const inflow = {};
+    X.filter(x => x[1] < 0).forEach(([d, a]) => {
+      const m = d.slice(0, 7);
+      inflow[m] = (inflow[m] || 0) - a;
+    });
+
+    // Dividendos
+    const dividends = DIV_RAW.split(';').map(s => {
+      const [d, y, g, w] = s.split(',');
+      return { date: dt(d), m: dt(d).slice(0, 7), y, gross: +g, wh: +w, net: r2(+g - +w), key: DIV_KEYS.includes(y) ? y : 'Otros' };
+    }).filter(x => x.date.startsWith(year));
+
+    // Ventas con su ganancia realizada (costo promedio)
+    const sales = data.T.filter(o => o.t === 'S' && o.m.startsWith(year)).map(o => {
+      const cost = o.a - o.g;
+      return { date: dt(o.d), m: o.m, y: o.y, name: N[o.y] || o.y, q: o.q, amount: o.a, cost, gain: o.g, pct: cost > 0 ? (o.g / cost) * 100 : 0 };
+    });
+
+    const byMonth = months.map(r => {
+      const inf = inflow[r.m] || 0;
+      const divs = dividends.filter(x => x.m === r.m);
+      const divByKey = {};
+      divs.forEach(x => { divByKey[x.key] = r2((divByKey[x.key] || 0) + x.net); });
+      const ms = sales.filter(x => x.m === r.m);
+      return {
+        m: r.m,
+        deposits: r2(r.d - inf),
+        toCrypto: r2(inf - r.w),
+        divNet: r2(divs.reduce((t, x) => t + x.net, 0)),
+        divByKey,
+        divs,
+        sales: ms,
+        realized: r.rl,
+        realizedPct: r.base > 0 ? (r.rl / r.base) * 100 : 0,
+        dv: r.dv,
+        unrealized: r.ur,
+        value: r.v
+      };
+    });
+
+    const sum = fn => byMonth.reduce((t, r) => t + fn(r), 0);
+    const deposits = sum(r => r.deposits);
+    const toCrypto = sum(r => r.toCrypto);
+    const realized = sum(r => r.realized);
+    const dv = sum(r => r.dv);
+    const unrealized = sum(r => r.unrealized);
+    const divNet = dividends.reduce((t, x) => t + x.net, 0);
+    const growth = endValue - startValue;
+    const salesCost = sales.reduce((t, x) => t + x.cost, 0);
+    const depMonths = byMonth.filter(r => r.deposits > 0);
+
+    return {
+      year,
+      months: byMonth,
+      firstMonth: months[0].m,
+      lastMonth: months[months.length - 1].m,
+      startValue,
+      endValue,
+      growth,
+      growthPct: startValue > 0 ? (growth / startValue) * 100 : null,
+      // Crecimiento = depósitos + traspasos a crypto + ventas + (dividendos, intereses y cargos) + no realizada
+      parts: { deposits, toCrypto, realized, dv, divNet, charges: dv - divNet, unrealized },
+      dividends: {
+        rows: dividends,
+        net: divNet,
+        gross: dividends.reduce((t, x) => t + x.gross, 0),
+        wh: dividends.reduce((t, x) => t + x.wh, 0),
+        keys: DIV_KEYS.concat('Otros').filter(k => dividends.some(x => x.key === k)),
+        best: byMonth.reduce((b, r) => (r.divNet > (b ? b.divNet : 0) ? r : b), null)
+      },
+      sales: {
+        rows: sales,
+        realized,
+        count: sales.length,
+        avgMonthly: realized / byMonth.length,
+        avgMonthlyPct: byMonth.reduce((t, r) => t + r.realizedPct, 0) / byMonth.length,
+        onCostPct: salesCost > 0 ? (realized / salesCost) * 100 : 0,
+        winners: sales.filter(x => x.gain > 0).length
+      },
+      deposits: {
+        total: deposits,
+        avgMonthly: deposits / byMonth.length,
+        monthsWith: depMonths.length,
+        max: depMonths.reduce((b, r) => (!b || r.deposits > b.deposits ? r : b), null)
+      }
+    };
+  }
+
   // --- MOTOR DE CÁLCULO DE CRYPTO ---
 
   // Valora los lotes de la foto. Sin spot usa los valores del corte; con spot revalúa cantidad × precio.
@@ -446,6 +557,8 @@
     dt,
     computePortfolioData,
     getPeriodSummary,
+    getYears,
+    computeYearDashboard,
     computeCrypto,
     fetchBtcSpot,
     loadBtcStorage,
