@@ -7,23 +7,12 @@
 const { useState, useMemo, useEffect, useRef } = React;
 
 // --- ICONOS VECTORIALES INTEGRADOS (SVG) ---
-const svgProps = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' };
+const svgProps = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.25, strokeLinecap: 'round', strokeLinejoin: 'round' };
 const Icons = {
   Logo: () => (
     <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
       <rect width="32" height="32" rx="8" className="logo-bg" />
       <polyline points="7,21 13,15 17,18 25,10" fill="none" className="logo-line" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
-  Sun: () => (
-    <svg width="16" height="16" {...svgProps}>
-      <circle cx="12" cy="12" r="4.5"></circle>
-      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
-    </svg>
-  ),
-  Moon: () => (
-    <svg width="16" height="16" {...svgProps}>
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
     </svg>
   ),
   Search: () => (
@@ -128,7 +117,7 @@ function InteractiveChart({ monthsData, f, lab }) {
   const d = tip != null ? monthsData[tip] : null;
 
   return (
-    <div className="card chart-card">
+    <div className="card chart-card reveal">
       <div className="card-head">
         <h3 className="card-title">Rendimiento mensual y acumulado</h3>
         <div className="chart-legend">
@@ -255,7 +244,7 @@ function CryptoLotsChart({ crypto, f, fd, pc }) {
   const tipLeft = lot && xT(lot.date) > W * 0.6;
 
   return (
-    <div className="card chart-card">
+    <div className="card chart-card reveal">
       <div className="card-head">
         <h3 className="card-title">Costo por BTC de cada lote <span className="section-sub">tamaño = monto invertido</span></h3>
         <div className="chart-legend">
@@ -344,7 +333,10 @@ function App() {
   // Estados de interfaz
   const [activeTab, setActiveTab] = useState('bolsa');
   const [period, setPeriod] = useState('YTD');
-  const [theme, setTheme] = useState(() => localStorage.getItem('hapi_theme') || 'dark');
+  // Preferencia de tema: 'system' (por defecto), 'light' o 'dark'
+  const [themePref, setThemePref] = useState(() => {
+    try { return localStorage.getItem('hapi_theme') || 'system'; } catch (e) { return 'system'; }
+  });
   const [posSearch, setPosSearch] = useState('');
   const [opsSearch, setOpsSearch] = useState('');
   const [opsType, setOpsType] = useState('ALL');
@@ -357,9 +349,37 @@ function App() {
 
   // Manejador del Tema (Dark / Light)
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('hapi_theme', theme);
-  }, [theme]);
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const effective = themePref === 'system' ? (mq.matches ? 'dark' : 'light') : themePref;
+      document.documentElement.setAttribute('data-theme', effective);
+    };
+    apply();
+    try { localStorage.setItem('hapi_theme', themePref); } catch (e) {}
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [themePref]);
+
+  // Entrada escalonada: cada bloque .reveal aparece al entrar en pantalla
+  useEffect(() => {
+    const els = document.querySelectorAll('.reveal:not(.in)');
+    if (!('IntersectionObserver' in window)) {
+      els.forEach(el => el.classList.add('in'));
+      return undefined;
+    }
+    const show = el => { el.classList.add('in'); io.unobserve(el); };
+    // Revela lo que ya está en pantalla o quedó arriba (scroll rápido, ancla, carga a mitad de página)
+    const sweep = () => document.querySelectorAll('.reveal:not(.in)').forEach(el => {
+      if (el.getBoundingClientRect().top < window.innerHeight) show(el);
+    });
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) show(e.target); });
+      sweep();
+    }, { rootMargin: '0px 0px -40px 0px' });
+    els.forEach(el => io.observe(el));
+    sweep();
+    return () => io.disconnect();
+  }, [activeTab]);
 
   // Título de la pestaña del navegador según la vista
   useEffect(() => {
@@ -445,6 +465,7 @@ function App() {
 
   return (
     <div className="app-container">
+      <a className="skip-link" href="#main">Saltar al contenido</a>
       {/* HEADER */}
       <header className="app-header">
         <div className="brand-section">
@@ -459,13 +480,15 @@ function App() {
           </div>
         </div>
 
-        <button className="icon-btn" onClick={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))} title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'} aria-label="Cambiar tema">
-          {theme === 'dark' ? <Icons.Sun /> : <Icons.Moon />}
-        </button>
+        <div className="segmented theme-switch" role="group" aria-label="Tema">
+          {[['system', 'Auto'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, l]) => (
+            <button key={k} className={themePref === k ? 'active' : ''} aria-pressed={themePref === k} onClick={() => setThemePref(k)}>{l}</button>
+          ))}
+        </div>
       </header>
 
       {/* PESTAÑAS PRINCIPALES */}
-      <nav className="tabs-nav">
+      <nav className="tabs-nav" aria-label="Portafolios">
         <button className={`tab-btn ${activeTab === 'bolsa' ? 'active' : ''}`} onClick={() => setActiveTab('bolsa')}>
           Bolsa <span className="tab-count">16 meses</span>
         </button>
@@ -474,9 +497,10 @@ function App() {
         </button>
       </nav>
 
+      <main id="main">
       {/* VISTA 1: BOLSA */}
       {activeTab === 'bolsa' && (
-        <section>
+        <section aria-label="Bolsa">
           {/* BARRA DE PERÍODOS */}
           <div className="toolbar">
             <div className="segmented" role="group" aria-label="Periodo">
@@ -491,11 +515,11 @@ function App() {
 
           {/* KPIs: tarjeta principal + 4 mosaicos */}
           <div className="kpi-grid">
-            <div className="card kpi hero">
+            <div className="card kpi hero reveal" style={{ '--i': 0 }}>
               <span className="kpi-label">Rendimiento total</span>
               <div className="hero-line">
-                <b className={`kpi-val hero-val ${cls(periodSummary.total)}`}>{sg(periodSummary.total)}</b>
-                <span className={`kpi-pct ${cls(periodSummary.total)}`}>{pc((periodSummary.total / periodSummary.base) * 100)}</span>
+                <b className="kpi-val hero-val">{sg(periodSummary.total)}</b>
+                <span className={`tag ${cls(periodSummary.total)}`}>{pc((periodSummary.total / periodSummary.base) * 100)}</span>
               </div>
               <div className="hero-stats">
                 <div className="hero-stat"><span>Depositado</span><b>{f(periodSummary.deposited)}</b></div>
@@ -509,11 +533,11 @@ function App() {
               ['No realizada', periodSummary.ur],
               ['Realizada + no realizada', periodSummary.capitalGain],
               ['Dividendos netos y cargos', periodSummary.dv]
-            ].map(([label, val]) => (
-              <div className="card kpi" key={label}>
+            ].map(([label, val], i) => (
+              <div className="card kpi reveal" style={{ '--i': i + 1 }} key={label}>
                 <span className="kpi-label">{label}</span>
                 <b className={`kpi-val ${cls(val)}`}>{sg(val)}</b>
-                <span className={`kpi-pct ${cls(val)}`}>{pc((val / periodSummary.base) * 100)}</span>
+                <span className={`tag ${cls(val)}`}>{pc((val / periodSummary.base) * 100)}</span>
               </div>
             ))}
           </div>
@@ -522,7 +546,7 @@ function App() {
           <InteractiveChart monthsData={selectedMonths} f={f} lab={lab} />
 
           {/* TABLA DE POSICIONES Y ACTIVOS */}
-          <div className="section">
+          <div className="section reveal">
             <div className="section-header">
               <h2 className="section-title">Posiciones <span className="section-sub">precios al 30 sep 2026</span></h2>
               <div className="search-input-wrapper">
@@ -590,7 +614,7 @@ function App() {
           </div>
 
           {/* TABLA DE RENDIMIENTO MENSUAL */}
-          <div className="section">
+          <div className="section reveal">
             <div className="section-header">
               <h2 className="section-title">Rendimiento mensual</h2>
             </div>
@@ -629,7 +653,7 @@ function App() {
           </div>
 
           {/* TABLA DE OPERACIONES */}
-          <div className="section">
+          <div className="section reveal">
             <div className="section-header">
               <h2 className="section-title">Operaciones <span className="section-sub">{filteredOperations.length} en el periodo</span></h2>
               <div className="section-tools">
@@ -681,7 +705,7 @@ function App() {
 
       {/* VISTA 2: CRYPTO (BAKKT) */}
       {activeTab === 'crypto' && (
-        <section>
+        <section aria-label="Crypto">
           {/* PRECIO BTC */}
           <div className="toolbar">
             <div className="price-source">
@@ -704,11 +728,11 @@ function App() {
 
           {/* KPIs CRYPTO */}
           <div className="kpi-grid">
-            <div className="card kpi hero">
+            <div className="card kpi hero reveal" style={{ '--i': 0 }}>
               <span className="kpi-label">Valor de mercado</span>
               <div className="hero-line">
                 <b className="kpi-val hero-val">{f(crypto.mv)}</b>
-                <span className={`kpi-pct ${cls(crypto.gain)}`}>{`${sg(crypto.gain)} · ${pc(crypto.gainPct)}`}</span>
+                <span className={`tag ${cls(crypto.gain)}`}>{`${sg(crypto.gain)} · ${pc(crypto.gainPct)}`}</span>
               </div>
               <div className="hero-stats">
                 <div className="hero-stat"><span>Invertido</span><b>{f(crypto.cost)}</b></div>
@@ -717,41 +741,41 @@ function App() {
               </div>
               <p className="footnote">Sin ventas registradas: toda la ganancia es no realizada.</p>
             </div>
-            <div className="card kpi">
+            <div className="card kpi reveal" style={{ '--i': 1 }}>
               <span className="kpi-label">Costo promedio</span>
               <b className="kpi-val">{f(crypto.avgCost)}</b>
-              <span className={`kpi-pct ${cls(crypto.price - crypto.avgCost)}`}>{`BTC ${pc((crypto.price / crypto.avgCost - 1) * 100)} sobre el costo`}</span>
+              <span className={`tag ${cls(crypto.price - crypto.avgCost)}`}>{`BTC ${pc((crypto.price / crypto.avgCost - 1) * 100)} sobre el costo`}</span>
             </div>
-            <div className="card kpi">
+            <div className="card kpi reveal" style={{ '--i': 2 }}>
               <span className="kpi-label">{crypto.live ? 'Lotes en ganancia' : 'Variación del día (corte)'}</span>
               {crypto.live ? (
                 <>
                   <b className="kpi-val">{crypto.winners} <span className="kpi-of">de {crypto.lots.length}</span></b>
-                  <span className="kpi-pct neutral">al precio actual</span>
+                  <span className="kpi-meta">al precio actual</span>
                 </>
               ) : (
                 <>
                   <b className={`kpi-val ${cls(crypto.dayUsd)}`}>{sg(crypto.dayUsd)}</b>
-                  <span className={`kpi-pct ${cls(crypto.dayUsd)}`}>{pc(crypto.dayPct)}</span>
+                  <span className={`tag ${cls(crypto.dayUsd)}`}>{pc(crypto.dayPct)}</span>
                 </>
               )}
             </div>
-            <div className="card kpi">
+            <div className="card kpi reveal" style={{ '--i': 3 }}>
               <span className="kpi-label">Mejor lote</span>
               <b className={`kpi-val ${cls(crypto.best.gain)}`}>{pc(crypto.best.gainPct)}</b>
-              <span className="kpi-pct neutral">{`${fd(crypto.best.date)} · ${sg(crypto.best.gain)}`}</span>
+              <span className="kpi-meta">{`${fd(crypto.best.date)} · ${sg(crypto.best.gain)}`}</span>
             </div>
-            <div className="card kpi">
+            <div className="card kpi reveal" style={{ '--i': 4 }}>
               <span className="kpi-label">Patrimonio total</span>
               <b className="kpi-val">{f(totalWealth)}</b>
-              <span className="kpi-pct neutral">{`Crypto ${((crypto.mv / totalWealth) * 100).toFixed(1)}% · bolsa a 30 sep`}</span>
+              <span className="kpi-meta">{`Crypto ${((crypto.mv / totalWealth) * 100).toFixed(1)}% · bolsa a 30 sep`}</span>
             </div>
           </div>
 
           <CryptoLotsChart crypto={crypto} f={f} fd={fd} pc={pc} />
 
           {/* TABLA DE LOTES */}
-          <div className="section">
+          <div className="section reveal">
             <div className="section-header">
               <h2 className="section-title">Lotes BTC <span className="section-sub">{crypto.winners} de {crypto.lots.length} en ganancia</span></h2>
             </div>
@@ -797,7 +821,7 @@ function App() {
           </div>
 
           {/* CONCILIACIÓN CON LOS TRASPASOS DE LA BOLSA */}
-          <div className="section">
+          <div className="section reveal">
             <div className="section-header">
               <h2 className="section-title">Traspasos desde la bolsa <span className="section-sub">Journal to BAKKT en los estados de Apex</span></h2>
             </div>
@@ -843,6 +867,7 @@ function App() {
           </div>
         </section>
       )}
+      </main>
     </div>
   );
 }

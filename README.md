@@ -15,9 +15,9 @@ El proyecto está organizado en **3 archivos maestros** desacoplados, limpios y 
    - Funciones utilitarias de formateo monetario, porcentual y fechas.
 
 2. **`MAESTRO.css`** *(Sistema de Diseño y Estilos)*:
-   - Estilo minimalista casi monocromo, modo oscuro por defecto y modo claro.
-   - Tipografía única *Inter* con cifras tabulares.
-   - Verde/rojo solo para ganancia/pérdida; diseño responsivo para móvil y escritorio.
+   - Minimalismo editorial cálido: monocromo con pasteles solo para significado (ganancia, pérdida, tipo de operación).
+   - Tipografía: *Geist* (interfaz), *Geist Mono* (metadatos) e *Instrument Serif* (títulos y cifras principales), con cifras tabulares.
+   - Tema Auto (sigue al sistema), Claro u Oscuro; entrada suave de bloques que respeta "reducir movimiento"; diseño responsivo.
 
 3. **`MAESTRO.jsx`** *(Interfaz y Componentes React 18)*:
    - Desarrollado con Hooks (`useState`, `useMemo`, `useEffect`, `useCallback`, `useRef`).
