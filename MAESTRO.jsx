@@ -488,6 +488,7 @@ function App() {
     getPeriodSummary,
     getYears,
     computeYearDashboard,
+    computeTaxes,
     computeCrypto,
     fetchBtcSpot,
     loadBtcStorage,
@@ -550,7 +551,7 @@ function App() {
 
   // Título de la pestaña del navegador según la vista
   useEffect(() => {
-    document.title = `${{ bolsa: 'Bolsa', crypto: 'Crypto', total: 'Total', dashboard: 'Dashboard' }[activeTab]} · HAPI`;
+    document.title = `${{ bolsa: 'Bolsa', crypto: 'Crypto', total: 'Total', dashboard: 'Dashboard', impuestos: 'Impuestos' }[activeTab]} · HAPI`;
   }, [activeTab]);
 
   // Cálculo del Período seleccionado
@@ -600,6 +601,28 @@ function App() {
   const share = v => (dash.growth !== 0 ? (v / dash.growth) * 100 : 0);
   const sharePct = v => { const s = share(v); return `${Math.abs(s) < 0.05 ? '0.0' : s.toFixed(1)}%`; };
   const endLabel = dash.lastMonth.endsWith('-12') ? 'Cierre' : `Corte ${lab(dash.lastMonth)}`;
+
+  // Impuestos: la tasa la pone el usuario (depende del país); se recuerda en este navegador
+  const [taxYear, setTaxYear] = useState(() => years[years.length - 1]);
+  const [taxOpts, setTaxOpts] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('hapi_tax') || 'null');
+      if (saved) return { rate: saved.rate || '', includeDiv: saved.includeDiv !== false, credit: saved.credit !== false };
+    } catch (e) {}
+    return { rate: '', includeDiv: true, credit: true };
+  });
+  useEffect(() => {
+    try { localStorage.setItem('hapi_tax', JSON.stringify(taxOpts)); } catch (e) {}
+  }, [taxOpts]);
+  const taxRate = parseFloat(String(taxOpts.rate).replace(',', '.'));
+  const hasRate = taxRate > 0 && taxRate <= 100;
+  const taxCalc = opts => computeTaxes(opts.year, { rate: hasRate ? taxRate : 0, includeDiv: taxOpts.includeDiv, credit: taxOpts.credit });
+  const taxByYear = useMemo(
+    () => years.map(y => ({ y, ...taxCalc({ year: computeYearDashboard(portfolioData, y) }) })),
+    [years, portfolioData, taxOpts]
+  );
+  const tax = taxByYear.find(t => t.y === taxYear);
+  const taxYearData = useMemo(() => computeYearDashboard(portfolioData, taxYear), [portfolioData, taxYear]);
 
   // Vista Total: bolsa según los estados de Apex; crypto tal como la pestaña Crypto (costo de los lotes = capital)
   const total = useMemo(() => {
@@ -687,7 +710,9 @@ function App() {
                   ? `Crypto · Bakkt · corte ${fd(crypto.cutDate)} · USD`
                   : activeTab === 'total'
                     ? `Total · bolsa + crypto · USD`
-                    : `Dashboard · bolsa · ${dashYear} · USD`}
+                    : activeTab === 'dashboard'
+                      ? `Dashboard · bolsa · ${dashYear} · USD`
+                      : `Impuestos · estimación · ${taxYear} · USD`}
             </div>
           </div>
         </div>
@@ -712,6 +737,9 @@ function App() {
         </button>
         <button className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
           Dashboard <span className="tab-count">por año</span>
+        </button>
+        <button className={`tab-btn ${activeTab === 'impuestos' ? 'active' : ''}`} onClick={() => setActiveTab('impuestos')}>
+          Impuestos <span className="tab-count">por año</span>
         </button>
       </nav>
 
@@ -1467,6 +1495,186 @@ function App() {
                 </table>
               </details>
             </div>
+          </div>
+        </section>
+      )}
+      {/* VISTA 5: IMPUESTOS (ESTIMACIÓN POR AÑO) */}
+      {activeTab === 'impuestos' && (
+        <section aria-label="Impuestos">
+          {/* Filtros: año + tasa manual + qué entra en la base */}
+          <div className="toolbar">
+            <div className="segmented" role="group" aria-label="Año">
+              {years.map(y => (
+                <button key={y} className={taxYear === y ? 'active' : ''} aria-pressed={taxYear === y} onClick={() => setTaxYear(y)}>{y}</button>
+              ))}
+            </div>
+            <div className="section-tools tax-controls">
+              <label className="rate-input">
+                <span>Tasa de impuesto</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="0"
+                  value={taxOpts.rate}
+                  aria-invalid={taxOpts.rate !== '' && !hasRate}
+                  onChange={e => setTaxOpts(o => ({ ...o, rate: e.target.value }))}
+                />
+                <em>%</em>
+              </label>
+              <label className="check">
+                <input type="checkbox" checked={taxOpts.includeDiv} onChange={e => setTaxOpts(o => ({ ...o, includeDiv: e.target.checked }))} />
+                Incluir dividendos
+              </label>
+              <label className={`check ${taxOpts.includeDiv ? '' : 'disabled'}`}>
+                <input type="checkbox" checked={taxOpts.credit} disabled={!taxOpts.includeDiv} onChange={e => setTaxOpts(o => ({ ...o, credit: e.target.checked }))} />
+                Descontar retención pagada
+              </label>
+            </div>
+          </div>
+          {taxOpts.rate !== '' && !hasRate && <p className="inline-error">La tasa debe estar entre 0 y 100%.</p>}
+
+          <div className="kpi-grid">
+            <div className="card kpi hero reveal" style={{ '--i': 0 }}>
+              <span className="kpi-label">{`Impuesto estimado ${taxYear}`}</span>
+              {hasRate ? (
+                <div className="hero-line">
+                  <b className="kpi-val hero-val">{f(tax.tax)}</b>
+                  <span className="tag">{`${taxRate}% sobre ${f(tax.taxable)}`}</span>
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <b>Ingresa tu tasa de impuesto</b>
+                  <span>Depende del país donde declaras. Escríbela arriba (por ejemplo 15) y el cálculo se hace al instante.</span>
+                </div>
+              )}
+              <div className="hero-stats">
+                <div className="hero-stat"><span>Base gravable</span><b className={cls(tax.base)}>{sg(tax.base)}</b></div>
+                <div className="hero-stat"><span>Impuesto bruto</span><b>{hasRate ? f(tax.grossTax) : '—'}</b></div>
+                <div className="hero-stat"><span>Crédito retención</span><b>{hasRate && tax.credit ? `-${f(tax.credit)}` : '—'}</b></div>
+              </div>
+              <p className="footnote">
+                {tax.base <= 0
+                  ? 'Este año el resultado realizado es negativo o cero: no hay impuesto que pagar.'
+                  : 'La base son las ganancias realizadas del año: ventas con ganancia menos ventas con pérdida, más dividendos si los incluyes.'}
+              </p>
+            </div>
+            <div className="card kpi reveal" style={{ '--i': 1 }}>
+              <span className="kpi-label">Ganancias en ventas</span>
+              <b className="kpi-val p">{sg(tax.gains)}</b>
+              <span className="kpi-meta">{`${taxYearData.sales.winners} ventas con ganancia`}</span>
+            </div>
+            <div className="card kpi reveal" style={{ '--i': 2 }}>
+              <span className="kpi-label">Pérdidas compensadas</span>
+              <b className={`kpi-val ${cls(tax.losses)}`}>{tax.losses ? sg(tax.losses) : '$0.00'}</b>
+              <span className="kpi-meta">{`${taxYearData.sales.count - taxYearData.sales.winners} ventas con pérdida`}</span>
+            </div>
+            <div className="card kpi reveal" style={{ '--i': 3 }}>
+              <span className="kpi-label">Dividendos brutos</span>
+              <b className="kpi-val">{f(taxYearData.dividends.gross)}</b>
+              <span className="kpi-meta">{taxOpts.includeDiv ? 'incluidos en la base' : 'no incluidos en la base'}</span>
+            </div>
+            <div className="card kpi reveal" style={{ '--i': 4 }}>
+              <span className="kpi-label">Retención ya pagada</span>
+              <b className="kpi-val">{f(tax.wh)}</b>
+              <span className="kpi-meta">~30% en origen (EE. UU.)</span>
+            </div>
+          </div>
+
+          {/* CÁLCULO PASO A PASO */}
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Cálculo <span className="section-sub">{`año ${taxYear}`}</span></h2>
+            </div>
+            <div className="card table-card">
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead><tr><th>Concepto</th><th>Monto</th></tr></thead>
+                  <tbody>
+                    <tr><td>Ganancias en ventas</td><td className="p">{sg(tax.gains)}</td></tr>
+                    <tr><td>Pérdidas en ventas</td><td className={tax.losses ? 'n' : 'neutral'}>{tax.losses ? sg(tax.losses) : '—'}</td></tr>
+                    <tr className="row-sub"><td>Resultado neto de ventas</td><td className={cls(tax.salesNet)}>{sg(tax.salesNet)}</td></tr>
+                    <tr><td>Dividendos brutos</td><td className={taxOpts.includeDiv ? '' : 'neutral'}>{taxOpts.includeDiv ? `+${f(tax.divGross)}` : 'no incluidos'}</td></tr>
+                    <tr className="row-total"><td>Base gravable</td><td>{sg(tax.base)}</td></tr>
+                    <tr><td>{`Tasa de impuesto`}</td><td>{hasRate ? `× ${taxRate}%` : '—'}</td></tr>
+                    <tr><td>Impuesto bruto</td><td>{hasRate ? f(tax.grossTax) : '—'}</td></tr>
+                    <tr><td>Crédito por retención en origen</td><td className="neutral">{hasRate && tax.credit ? `-${f(tax.credit)}` : '—'}</td></tr>
+                    <tr className="row-total"><td>Impuesto a pagar</td><td>{hasRate ? f(tax.tax) : '—'}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* BASE POR MES */}
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Base por mes <span className="section-sub">se compensa en el total del año</span></h2>
+            </div>
+            <div className="card table-card">
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead><tr><th>Mes</th><th>Ventas</th><th>Resultado ventas</th><th>Dividendos brutos</th><th>Base del mes</th></tr></thead>
+                  <tbody>
+                    {tax.months.slice().reverse().map(r => (
+                      <tr key={r.m}>
+                        <td className="strong">{lab(r.m)}</td>
+                        <td className={r.count ? '' : 'neutral'}>{r.count || '—'}</td>
+                        <td className={r.count ? cls(r.sales) : 'neutral'}>{r.count ? sg(r.sales) : '—'}</td>
+                        <td className={r.div ? '' : 'neutral'}>{r.div ? f(r.div) : '—'}</td>
+                        <td className={r.base ? cls(r.base) : 'neutral'}>{r.base ? sg(r.base) : '—'}</td>
+                      </tr>
+                    ))}
+                    <tr className="row-total">
+                      <td>Total</td>
+                      <td>{taxYearData.sales.count}</td>
+                      <td>{sg(tax.salesNet)}</td>
+                      <td>{f(tax.divGross)}</td>
+                      <td>{sg(tax.base)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* RESUMEN DE TODOS LOS AÑOS */}
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Todos los años <span className="section-sub">{hasRate ? `con tasa ${taxRate}%` : 'sin tasa'}</span></h2>
+            </div>
+            <div className="card table-card">
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead><tr><th>Año</th><th>Resultado ventas</th><th>Dividendos</th><th>Base gravable</th><th>Impuesto a pagar</th></tr></thead>
+                  <tbody>
+                    {taxByYear.slice().reverse().map(t => (
+                      <tr key={t.y} className={t.y === taxYear ? 'row-selected' : ''}>
+                        <td className="strong">{t.y}</td>
+                        <td className={cls(t.salesNet)}>{sg(t.salesNet)}</td>
+                        <td className={taxOpts.includeDiv ? '' : 'neutral'}>{taxOpts.includeDiv ? f(t.divGross) : '—'}</td>
+                        <td>{sg(t.base)}</td>
+                        <td className="strong">{hasRate ? f(t.tax) : '—'}</td>
+                      </tr>
+                    ))}
+                    <tr className="row-total">
+                      <td>Total</td>
+                      <td>{sg(taxByYear.reduce((s, t) => s + t.salesNet, 0))}</td>
+                      <td>{taxOpts.includeDiv ? f(taxByYear.reduce((s, t) => s + t.divGross, 0)) : '—'}</td>
+                      <td>{sg(taxByYear.reduce((s, t) => s + t.base, 0))}</td>
+                      <td>{hasRate ? f(taxByYear.reduce((s, t) => s + t.tax, 0)) : '—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <p className="note">
+              Estimación orientativa, no asesoría tributaria. Usa costo promedio para la ganancia de cada venta y montos en USD;
+              tu país puede exigir otro método (por ejemplo FIFO), convertir a moneda local con la tasa de cada fecha, permitir arrastrar pérdidas entre años
+              o tratar distinto los dividendos. La crypto no tiene ventas registradas, así que no genera impuesto por ahora. La tasa se guarda solo en este navegador.
+            </p>
           </div>
         </section>
       )}

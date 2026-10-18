@@ -429,6 +429,39 @@
     };
   }
 
+  // --- MOTOR DE IMPUESTOS (estimación sobre ganancias realizadas) ---
+  // opts = { rate (%), includeDiv (dividendos brutos en la base), credit (descontar la retención en origen) }
+  function computeTaxes(year, opts) {
+    const rate = opts.rate > 0 ? opts.rate : 0;
+    const gains = year.sales.rows.filter(x => x.gain > 0).reduce((t, x) => t + x.gain, 0);
+    const losses = year.sales.rows.filter(x => x.gain < 0).reduce((t, x) => t + x.gain, 0);
+    const salesNet = gains + losses;
+    const divGross = opts.includeDiv ? year.dividends.gross : 0;
+    const base = salesNet + divGross;
+    const taxable = Math.max(0, base);
+    const grossTax = taxable * (rate / 100);
+    const credit = opts.includeDiv && opts.credit ? Math.min(year.dividends.wh, grossTax) : 0;
+    const months = year.months.map(r => {
+      const div = opts.includeDiv ? r.divs.reduce((t, x) => t + x.gross, 0) : 0;
+      return { m: r.m, sales: r.realized, div, base: r.realized + div, count: r.sales.length };
+    });
+    return {
+      rate,
+      gains,
+      losses,
+      salesNet,
+      divGross,
+      wh: year.dividends.wh,
+      base,
+      taxable,
+      grossTax,
+      credit,
+      tax: Math.max(0, grossTax - credit),
+      effectivePct: salesNet + year.dividends.gross > 0 ? (Math.max(0, grossTax - credit) / (salesNet + year.dividends.gross)) * 100 : 0,
+      months
+    };
+  }
+
   // --- MOTOR DE CÁLCULO DE CRYPTO ---
 
   // Valora los lotes de la foto. Sin spot usa los valores del corte; con spot revalúa cantidad × precio.
@@ -559,6 +592,7 @@
     getPeriodSummary,
     getYears,
     computeYearDashboard,
+    computeTaxes,
     computeCrypto,
     fetchBtcSpot,
     loadBtcStorage,
