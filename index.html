@@ -11,7 +11,10 @@
   <meta property="og:title" content="HAPI · Portafolio">
   <meta property="og:description" content="Resumen de inversiones en bolsa y crypto, mes a mes.">
   <meta property="og:locale" content="es_CO">
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=__BUILD__">
+  <!-- El HTML siempre se revalida para que encuentre la versión nueva de los archivos -->
+  <meta http-equiv="Cache-Control" content="no-cache">
+  <meta name="hapi-build" content="__BUILD__">
 
   <!-- Tema antes de pintar (Auto sigue al sistema; evita parpadeo) -->
   <script>
@@ -28,7 +31,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
 
   <!-- Estilos Maestros -->
-  <link rel="stylesheet" href="MAESTRO.css">
+  <!-- ?v=__BUILD__ lo reemplaza el deploy por el commit: cada publicación obliga al navegador a bajar los archivos nuevos -->
+  <link rel="stylesheet" href="MAESTRO.css?v=__BUILD__">
 
   <!-- React 18 y Babel Standalone para transpilar JSX en el navegador -->
   <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
@@ -60,10 +64,10 @@
   </div>
 
   <!-- 1. Motor Maestro de Datos y Cálculos Financieros -->
-  <script src="MAESTRO.js"></script>
+  <script src="MAESTRO.js?v=__BUILD__"></script>
 
   <!-- 2. Aplicación Maestra en React (JSX) -->
-  <script type="text/babel" src="MAESTRO.jsx"></script>
+  <script type="text/babel" src="MAESTRO.jsx?v=__BUILD__"></script>
 
   <!-- Aviso si se abre con file:// (el navegador bloquea la carga de MAESTRO.jsx) -->
   <script>
