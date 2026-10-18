@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hapi",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:\\Users\\Niko\\AppData\\Local\\Temp\\claude\\D--NIKO-PROYECTOS-WEB-APP-REPOS-HAPI\\0649185b-7114-4052-b3a2-db438d2796f2\\scratchpad\\serve.js", "D:\\NIKO\\PROYECTOS-WEB-APP\\REPOS\\HAPI"],
+      "port": 5173
+    }
+  ]
+}
