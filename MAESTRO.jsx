@@ -383,7 +383,7 @@ function App() {
 
   // Título de la pestaña del navegador según la vista
   useEffect(() => {
-    document.title = `${activeTab === 'bolsa' ? 'Bolsa' : 'Crypto'} · HAPI`;
+    document.title = `${{ bolsa: 'Bolsa', crypto: 'Crypto', total: 'Total' }[activeTab]} · HAPI`;
   }, [activeTab]);
 
   // Cálculo del Período seleccionado
@@ -424,6 +424,38 @@ function App() {
   // Cálculo de Crypto
   const crypto = useMemo(() => computeCrypto(btcPrice.spot), [btcPrice]);
   const totalWealth = portfolioData.totalClosingVal + crypto.mv;
+
+  // Vista Total: todo el dinero entra por la bolsa (aportes HAPI); lo que pasa a Bakkt es capital de crypto
+  const total = useMemo(() => {
+    const netBolsa = portfolioData.D.reduce((t, r) => t + r[2] - r[3], 0);
+    const netCrypto = crypto.withdrawn - crypto.returned;
+    const capital = netBolsa + netCrypto;
+    const bolsaVal = portfolioData.totalClosingVal;
+    const value = bolsaVal + crypto.mv;
+    const holdings = portfolioData.positionsRows
+      .filter(r => r.q > 0)
+      .map(r => ({ key: r.y, name: r.name, account: 'Bolsa', v: r.v }))
+      .concat([
+        { key: 'BTC', name: 'Bitcoin', account: 'Crypto', v: crypto.mv },
+        { key: 'Efectivo', name: 'FDIC / margen', account: 'Bolsa', v: portfolioData.cashFdic }
+      ])
+      .sort((a, b) => b.v - a.v)
+      .map(h => ({ ...h, pct: (h.v / value) * 100 }));
+    return {
+      capital,
+      netBolsa,
+      netCrypto,
+      bolsaVal,
+      value,
+      gain: value - capital,
+      gainPct: ((value - capital) / capital) * 100,
+      bolsaGain: bolsaVal - netBolsa,
+      cryptoGain: crypto.mv - netCrypto,
+      bolsaPct: (bolsaVal / value) * 100,
+      cryptoPct: (crypto.mv / value) * 100,
+      holdings
+    };
+  }, [portfolioData, crypto]);
 
   const applyBtcPrice = next => {
     setBtcPrice(next);
@@ -475,7 +507,9 @@ function App() {
             <div className="brand-sub">
               {activeTab === 'bolsa'
                 ? 'Bolsa · Apex Clearing · jun 2025 – sep 2026 · USD'
-                : `Crypto · Bakkt · corte ${fd(crypto.cutDate)} · USD`}
+                : activeTab === 'crypto'
+                  ? `Crypto · Bakkt · corte ${fd(crypto.cutDate)} · USD`
+                  : `Total · bolsa + crypto · USD`}
             </div>
           </div>
         </div>
@@ -494,6 +528,9 @@ function App() {
         </button>
         <button className={`tab-btn ${activeTab === 'crypto' ? 'active' : ''}`} onClick={() => setActiveTab('crypto')}>
           Crypto <span className="tab-count">{crypto.lots.length} lotes</span>
+        </button>
+        <button className={`tab-btn ${activeTab === 'total' ? 'active' : ''}`} onClick={() => setActiveTab('total')}>
+          Total <span className="tab-count">bolsa + crypto</span>
         </button>
       </nav>
 
@@ -863,6 +900,114 @@ function App() {
               (diferencia de {f(crypto.matchedWithdrawn - crypto.matchedCost)} por spread y comisiones). {f(crypto.unmatched)} en traspasos
               ({crypto.transfers.filter(t => !t.lot && t.amount > 0).map(t => fd(t.date)).join(', ')}) no tienen lote asociado y en jun 2026 volvieron {f(crypto.returned)} a la bolsa; queda pendiente confirmar a dónde fue ese saldo.
               Los lotes provienen de la foto "Share Lots" del {fd(crypto.cutDate)}; con precio en vivo o manual se revalúan como cantidad × precio.
+            </p>
+          </div>
+        </section>
+      )}
+      {/* VISTA 3: TOTAL (BOLSA + CRYPTO) */}
+      {activeTab === 'total' && (
+        <section aria-label="Total">
+          <div className="toolbar">
+            <div className="toolbar-note">
+              {`Bolsa al 30 sep 2026 · crypto ${crypto.live ? (btcPrice.source === 'manual' ? 'a precio manual' : 'a precio en vivo') : `al ${fd(crypto.cutDate)}`}`}
+            </div>
+          </div>
+
+          <div className="kpi-grid">
+            <div className="card kpi hero reveal" style={{ '--i': 0 }}>
+              <span className="kpi-label">Patrimonio total</span>
+              <div className="hero-line">
+                <b className="kpi-val hero-val">{f(total.value)}</b>
+                <span className={`tag ${cls(total.gain)}`}>{`${sg(total.gain)} · ${pc(total.gainPct)}`}</span>
+              </div>
+              <div className="split" aria-label={`Bolsa ${total.bolsaPct.toFixed(1)}%, crypto ${total.cryptoPct.toFixed(1)}%`}>
+                <div className="split-bar">
+                  <span className="split-seg bolsa" style={{ width: `${total.bolsaPct}%` }}></span>
+                  <span className="split-seg crypto" style={{ width: `${total.cryptoPct}%` }}></span>
+                </div>
+                <div className="split-legend">
+                  <span><i className="split-dot bolsa"></i>Bolsa {total.bolsaPct.toFixed(1)}%</span>
+                  <span><i className="split-dot crypto"></i>Crypto {total.cryptoPct.toFixed(1)}%</span>
+                </div>
+              </div>
+              <div className="hero-stats">
+                <div className="hero-stat"><span>Capital aportado</span><b>{f(total.capital)}</b></div>
+                <div className="hero-stat"><span>Ganancia total</span><b className={cls(total.gain)}>{sg(total.gain)}</b></div>
+                <div className="hero-stat"><span>Activos</span><b>{total.holdings.length - 1} + efectivo</b></div>
+              </div>
+              <p className="footnote">Capital aportado = todo lo que entró desde HAPI. Lo que pasó a Bakkt cuenta como capital de crypto, no como retiro.</p>
+            </div>
+            <div className="card kpi reveal" style={{ '--i': 1 }}>
+              <span className="kpi-label">Bolsa</span>
+              <b className="kpi-val">{f(total.bolsaVal)}</b>
+              <span className={`tag ${cls(total.bolsaGain)}`}>{`${sg(total.bolsaGain)} · ${pc((total.bolsaGain / total.netBolsa) * 100)}`}</span>
+            </div>
+            <div className="card kpi reveal" style={{ '--i': 2 }}>
+              <span className="kpi-label">Crypto</span>
+              <b className="kpi-val">{f(crypto.mv)}</b>
+              <span className={`tag ${cls(total.cryptoGain)}`}>{`${sg(total.cryptoGain)} · ${pc((total.cryptoGain / total.netCrypto) * 100)}`}</span>
+            </div>
+            <div className="card kpi reveal" style={{ '--i': 3 }}>
+              <span className="kpi-label">Aportado a bolsa (neto)</span>
+              <b className="kpi-val">{f(total.netBolsa)}</b>
+              <span className="kpi-meta">aportes − traspasos a Bakkt</span>
+            </div>
+            <div className="card kpi reveal" style={{ '--i': 4 }}>
+              <span className="kpi-label">Traspasado a crypto (neto)</span>
+              <b className="kpi-val">{f(total.netCrypto)}</b>
+              <span className="kpi-meta">{`invertido en lotes ${f(crypto.cost)}`}</span>
+            </div>
+          </div>
+
+          {/* DISTRIBUCIÓN DEL PATRIMONIO */}
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Distribución <span className="section-sub">{total.holdings.length} partidas · % del patrimonio</span></h2>
+            </div>
+            <div className="card table-card">
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Activo</th>
+                      <th>Cuenta</th>
+                      <th>Valor</th>
+                      <th>% patrimonio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {total.holdings.map(h => (
+                      <tr key={h.key}>
+                        <td>
+                          <div className="ticker-cell">
+                            <span className="ticker-symbol">{h.key}</span>
+                            <span className="ticker-name">{h.name}</span>
+                          </div>
+                        </td>
+                        <td><span className={`badge ${h.account === 'Crypto' ? 'sell' : 'split'}`}>{h.account}</span></td>
+                        <td>{f(h.v)}</td>
+                        <td>
+                          <span className="weight-cell">
+                            {h.pct.toFixed(1)}%
+                            <span className="weight-bar"><span className={`weight-fill ${h.account === 'Crypto' ? 'crypto' : ''}`} style={{ width: `${Math.min(100, h.pct)}%` }}></span></span>
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="row-total">
+                      <td>Total</td>
+                      <td></td>
+                      <td>{f(total.value)}</td>
+                      <td>100%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <p className="note">
+              En esta vista la ganancia de crypto se mide contra lo traspasado desde la bolsa ({f(total.netCrypto)}), no contra el costo de los lotes ({f(crypto.cost)}):
+              por eso es {sg(total.cryptoGain)} y no {sg(crypto.gain)}. La diferencia son spreads y {f(crypto.unmatched)} traspasados sin lote asociado (pendiente de confirmar).
+              Las fechas no coinciden: la bolsa es el cierre del 30 sep 2026 y crypto el corte del {fd(crypto.cutDate)}.
             </p>
           </div>
         </section>

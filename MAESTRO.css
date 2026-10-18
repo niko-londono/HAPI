@@ -68,7 +68,7 @@ button, input { font-family: inherit; }
 
 /* TABS */
 .tabs-nav { display: flex; gap: 24px; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
-.tab-btn { display: inline-flex; align-items: baseline; gap: 8px; background: none; border: 0; border-bottom: 1.5px solid transparent; margin-bottom: -1px; color: var(--text-muted); padding: 10px 0 12px; font-size: 14px; font-weight: 500; cursor: pointer; transition: color var(--t), border-color var(--t); }
+.tab-btn { display: inline-flex; align-items: baseline; gap: 8px; white-space: nowrap; background: none; border: 0; border-bottom: 1.5px solid transparent; margin-bottom: -1px; color: var(--text-muted); padding: 10px 0 12px; font-size: 14px; font-weight: 500; cursor: pointer; transition: color var(--t), border-color var(--t); }
 .tab-btn:hover { color: var(--text-main); }
 .tab-btn.active { color: var(--text-main); border-bottom-color: var(--text-main); }
 .tab-count { font: 400 11.5px var(--font-mono); color: var(--text-dim); }
@@ -195,6 +195,17 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; whit
 .btn.ghost { background: transparent; color: var(--text-muted); border-color: var(--border); }
 .btn.ghost:hover { color: var(--text-main); border-color: var(--border-strong); opacity: 1; }
 
+/* TOTAL: barra de reparto bolsa / crypto */
+.split { margin-top: 8px; }
+.split-bar { display: flex; gap: 3px; height: 8px; }
+.split-seg { display: block; height: 100%; border-radius: 3px; }
+.split-seg.bolsa, .split-dot.bolsa { background: var(--text-main); }
+.split-seg.crypto, .split-dot.crypto { background: var(--cum); }
+.split-legend { display: flex; gap: 18px; margin-top: 8px; font: 400 12px var(--font-mono); color: var(--text-muted); }
+.split-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.split-dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.weight-fill.crypto { background: var(--cum); }
+
 /* CRYPTO */
 .price-source { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .price-source-label { font: 500 11.5px var(--font-mono); color: var(--text-muted); }
@@ -223,6 +234,7 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; whit
   body { padding: 24px 16px 64px; }
   .app-header { align-items: flex-start; flex-direction: column; gap: 14px; }
   .brand-text h1 { font-size: 28px; }
+  .tab-count { display: none; }
   .hero-val { font-size: 44px; }
   .hero-stats { grid-template-columns: 1fr 1fr; }
   .kpi { padding: 16px; }
