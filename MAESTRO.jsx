@@ -1494,7 +1494,7 @@ function App() {
             <div className="kpi-row">
               <div className="card kpi"><span className="kpi-label">Ganancia realizada</span><b className={`kpi-val ${cls(dash.sales.realized)}`}>{sg(dash.sales.realized)}</b><span className="kpi-meta">{`${dash.sales.count} ventas en ${dash.months.length} meses`}</span></div>
               <div className="card kpi"><span className="kpi-label">Promedio mensual</span><b className={`kpi-val ${cls(dash.sales.avgMonthly)}`}>{sg(dash.sales.avgMonthly)}</b><span className={`tag ${cls(dash.sales.avgMonthlyPct)}`}>{`${pc(dash.sales.avgMonthlyPct)} / mes`}</span></div>
-              <div className="card kpi"><span className="kpi-label">Rendimiento sobre lo vendido</span><b className={`kpi-val ${cls(dash.sales.onCostPct)}`}>{pc(dash.sales.onCostPct)}</b><span className="kpi-meta">ganancia ÷ costo de lo vendido</span></div>
+              <div className="card kpi"><span className="kpi-label">Rendimiento sobre lo vendido</span><b className={`kpi-val ${cls(dash.sales.onCostPct)}`}>{pc(dash.sales.onCostPct)}</b><span className="kpi-meta">ganancia ÷ costo de lo vendido</span><span className="kpi-meta">{`Capital vendido: ${f(dash.sales.avgMonthlyCost)} / mes`}</span></div>
               <div className="card kpi"><span className="kpi-label">Ventas con ganancia</span><b className="kpi-val">{dash.sales.winners} <span className="kpi-of">de {dash.sales.count}</span></b><span className="kpi-meta">{dash.sales.count ? `${((dash.sales.winners / dash.sales.count) * 100).toFixed(0)}% de acierto` : '—'}</span></div>
             </div>
             <div className="card chart-card">

@@ -418,6 +418,7 @@
         avgMonthly: realized / byMonth.length,
         avgMonthlyPct: byMonth.reduce((t, r) => t + r.realizedPct, 0) / byMonth.length,
         onCostPct: salesCost > 0 ? (realized / salesCost) * 100 : 0,
+        avgMonthlyCost: salesCost / byMonth.length,
         winners: sales.filter(x => x.gain > 0).length
       },
       deposits: {
