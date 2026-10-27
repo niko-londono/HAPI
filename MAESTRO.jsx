@@ -608,7 +608,7 @@ function App() {
 
   // Título de la pestaña del navegador según la vista
   useEffect(() => {
-    document.title = `${{ bolsa: 'Bolsa', crypto: 'Crypto', total: 'Total', dashboard: 'Dashboard', impuestos: 'Impuestos' }[activeTab]} · HAPI`;
+    document.title = `${{ bolsa: 'Bolsa', crypto: 'Crypto', total: 'Total', dashboard: 'Dashboard', impuestos: 'Impuestos', anual: 'Anual' }[activeTab]} · HAPI`;
   }, [activeTab]);
 
   // Cálculo del Período seleccionado
@@ -684,16 +684,16 @@ function App() {
   // Vista Total por periodo (misma barra que Bolsa): bolsa según los estados de Apex; crypto tal como la pestaña Crypto.
   // Crypto no tiene precio histórico: al inicio del periodo (y al final, si el periodo no llega al último mes) se valora a costo.
   // Así siempre se cumple: valor final = valor inicial + capital aportado + ganancia.
-  const total = useMemo(() => {
+  const computeTotal = (months, summary) => {
     const R = portfolioData.R;
-    const first = selectedMonths[0].m;
-    const last = selectedMonths[selectedMonths.length - 1].m;
+    const first = months[0].m;
+    const last = months[months.length - 1].m;
     const isLatest = last === R[R.length - 1].m;
     const startIdx = R.findIndex(r => r.m === first);
     const bolsaStart = startIdx > 0 ? R[startIdx - 1].v : 0;
-    const bolsaVal = periodSummary.closingValue;
-    const netBolsa = periodSummary.deposited - periodSummary.withdrawn;
-    const bolsaGain = periodSummary.total;
+    const bolsaVal = summary.closingValue;
+    const netBolsa = summary.deposited - summary.withdrawn;
+    const bolsaGain = summary.total;
 
     // Crypto sin precio histórico: la ganancia del periodo es la de los lotes comprados en él.
     // Lotes anteriores al periodo: a valor actual (si el periodo llega a hoy) o a costo (si termina antes).
@@ -734,14 +734,22 @@ function App() {
       gain,
       gainPct: startValue + capital > 0 ? (gain / (startValue + capital)) * 100 : 0,
       bolsaGain,
-      bolsaGainPct: (bolsaGain / periodSummary.base) * 100,
+      bolsaGainPct: (bolsaGain / summary.base) * 100,
       cryptoGain,
       cryptoGainPct: netCrypto > 0 ? (cryptoGain / netCrypto) * 100 : 0,
       bolsaPct: (bolsaVal / value) * 100,
       cryptoPct: (cryptoVal / value) * 100,
       holdings
     };
-  }, [portfolioData, crypto, selectedMonths, periodSummary, totalWealth]);
+  };
+  const total = useMemo(() => computeTotal(selectedMonths, periodSummary), [portfolioData, crypto, selectedMonths, periodSummary, totalWealth]);
+
+  // Vista Anual: el mismo cálculo de Total, un año completo por fila (el primero marca el inicio del portafolio)
+  const annual = useMemo(() => years.map((y, i) => {
+    const months = portfolioData.R.filter(r => r.m.startsWith(y));
+    const t = computeTotal(months, getPeriodSummary(months));
+    return { year: y, ...t, months: months.length, isStart: i === 0 };
+  }).reverse(), [years, portfolioData, crypto, totalWealth]);
 
   const applyBtcPrice = next => {
     setBtcPrice(next);
@@ -799,7 +807,9 @@ function App() {
                     ? `Total · bolsa + crypto · USD`
                     : activeTab === 'dashboard'
                       ? `Dashboard · bolsa · ${dashYear} · USD`
-                      : `Impuestos · estimación · ${taxYear} · USD`}
+                      : activeTab === 'anual'
+                        ? 'Anual · bolsa + crypto · USD'
+                        : `Impuestos · estimación · ${taxYear} · USD`}
             </div>
           </div>
         </div>
@@ -827,6 +837,9 @@ function App() {
         </button>
         <button className={`tab-btn ${activeTab === 'impuestos' ? 'active' : ''}`} onClick={() => setActiveTab('impuestos')}>
           Impuestos <span className="tab-count">por año</span>
+        </button>
+        <button className={`tab-btn ${activeTab === 'anual' ? 'active' : ''}`} onClick={() => setActiveTab('anual')}>
+          Anual <span className="tab-count">{years.length} años</span>
         </button>
       </nav>
 
@@ -1591,6 +1604,41 @@ function App() {
                   </tbody>
                 </table>
               </details>
+            </div>
+          </div>
+        </section>
+      )}
+      {/* VISTA 6: ANUAL (RENDIMIENTO DEL PORTAFOLIO POR AÑO) */}
+      {activeTab === 'anual' && (
+        <section aria-label="Anual">
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Rendimiento anual <span className="section-sub">bolsa + crypto</span></h2>
+            </div>
+            <div className="card table-card">
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Año</th><th>Valor inicial</th><th>Aportado neto</th><th>Ganancia</th><th>Rendimiento</th><th>Valor final</th></tr>
+                  </thead>
+                  <tbody>
+                    {annual.map(a => (
+                      <tr key={a.year}>
+                        <td className="strong">
+                          {a.year}
+                          {a.isStart && <div className="note">{`Inicio del portafolio · ${lab(a.first)}`}</div>}
+                          {a.months < 12 && !a.isStart && <div className="note">{`${lab(a.first)} – ${lab(a.last)} · ${a.months} meses`}</div>}
+                        </td>
+                        <td>{f(a.startValue)}</td>
+                        <td>{f(a.capital)}</td>
+                        <td className={cls(a.gain)}>{sg(a.gain)}</td>
+                        <td className={cls(a.gainPct)}>{pc(a.gainPct)}</td>
+                        <td className="strong">{f(a.value)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </section>
