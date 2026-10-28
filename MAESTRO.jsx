@@ -655,8 +655,6 @@ function App() {
   const [dashYear, setDashYear] = useState(() => years[years.length - 1]);
   const dash = useMemo(() => computeYearDashboard(portfolioData, dashYear), [portfolioData, dashYear]);
   const divCls = k => (k === 'Otros' ? 's-other' : `s${['VOO', 'MSFT', 'META', 'QQQ', 'TQQQ'].indexOf(k) + 1}`);
-  const share = v => (dash.growth !== 0 ? (v / dash.growth) * 100 : 0);
-  const sharePct = v => { const s = share(v); return `${Math.abs(s) < 0.05 ? '0.0' : s.toFixed(1)}%`; };
   const endLabel = dash.lastMonth.endsWith('-12') ? 'Cierre' : `Corte ${lab(dash.lastMonth)}`;
 
   // Impuestos: la tasa la pone el usuario (depende del país); se recuerda en este navegador
@@ -751,6 +749,23 @@ function App() {
     return { year: y, ...t, months: months.length, isStart: i === 0 };
   }).reverse(), [years, portfolioData, crypto, totalWealth]);
 
+  // Crecimiento del dashboard: bolsa + crypto (mismo cálculo que Anual). Los traspasos a crypto quedan dentro del portafolio.
+  const dashTotal = annual.find(a => a.year === dashYear);
+  const grow = {
+    start: dashTotal.startValue,
+    end: dashTotal.value,
+    total: dashTotal.value - dashTotal.startValue,
+    pct: dashTotal.startValue > 0 ? ((dashTotal.value - dashTotal.startValue) / dashTotal.startValue) * 100 : null,
+    gain: dashTotal.gain,
+    deposits: dashTotal.capital,
+    netBolsa: dashTotal.netBolsa,
+    netCrypto: dashTotal.netCrypto,
+    crypto: dashTotal.cryptoGain,
+    unrealized: dash.parts.unrealized + dashTotal.cryptoGain
+  };
+  const share = v => (grow.total !== 0 ? (v / grow.total) * 100 : 0);
+  const sharePct = v => { const s = share(v); return `${Math.abs(s) < 0.05 ? '0.0' : s.toFixed(1)}%`; };
+
   const applyBtcPrice = next => {
     setBtcPrice(next);
     saveBtcStorage(next);
@@ -806,7 +821,7 @@ function App() {
                   : activeTab === 'total'
                     ? `Total · bolsa + crypto · USD`
                     : activeTab === 'dashboard'
-                      ? `Dashboard · bolsa · ${dashYear} · USD`
+                      ? `Dashboard · bolsa + crypto · ${dashYear} · USD`
                       : activeTab === 'anual'
                         ? 'Anual · bolsa + crypto · USD'
                         : `Impuestos · estimación · ${taxYear} · USD`}
@@ -1341,7 +1356,7 @@ function App() {
               ))}
             </div>
             <div className="toolbar-note">
-              {`${lab(dash.firstMonth)} – ${lab(dash.lastMonth)} · ${dash.months.length} ${dash.months.length > 1 ? 'meses' : 'mes'} · bolsa`}
+              {`${lab(dash.firstMonth)} – ${lab(dash.lastMonth)} · ${dash.months.length} ${dash.months.length > 1 ? 'meses' : 'mes'} · bolsa + crypto`}
             </div>
           </div>
 
@@ -1350,25 +1365,25 @@ function App() {
             <div className="card kpi hero reveal" style={{ '--i': 0 }}>
               <span className="kpi-label">{`Crecimiento en ${dashYear}`}</span>
               <div className="hero-line">
-                <b className="kpi-val hero-val">{sg(dash.growth)}</b>
-                {dash.growthPct != null && <span className={`tag ${cls(dash.growth)}`}>{pc(dash.growthPct)}</span>}
+                <b className="kpi-val hero-val">{sg(grow.total)}</b>
+                {grow.pct != null && <span className={`tag ${cls(grow.total)}`}>{pc(grow.pct)}</span>}
               </div>
               <div className="hero-stats">
-                <div className="hero-stat"><span>{dash.startValue > 0 ? `Inicio (${lab(`${+dashYear - 1}-12`)})` : 'Inicio'}</span><b>{f(dash.startValue)}</b></div>
-                <div className="hero-stat"><span>{endLabel}</span><b>{f(dash.endValue)}</b></div>
-                <div className="hero-stat"><span>Ganancia del año</span><b className={cls(dash.growth - dash.parts.deposits - dash.parts.toCrypto)}>{sg(dash.growth - dash.parts.deposits - dash.parts.toCrypto)}</b></div>
+                <div className="hero-stat"><span>{grow.start > 0 ? `Inicio (${lab(`${+dashYear - 1}-12`)})` : 'Inicio'}</span><b>{f(grow.start)}</b></div>
+                <div className="hero-stat"><span>{endLabel}</span><b>{f(grow.end)}</b></div>
+                <div className="hero-stat"><span>Ganancia del año</span><b className={cls(grow.gain)}>{sg(grow.gain)}</b></div>
               </div>
               <p className="footnote">
-                {dash.startValue > 0
-                  ? 'Crecimiento = valor al corte − valor al inicio del año. Incluye depósitos; la ganancia del año los excluye.'
+                {grow.start > 0
+                  ? 'Crecimiento = valor al corte − valor al inicio del año, bolsa + crypto. Incluye depósitos; la ganancia del año los excluye.'
                   : 'La cuenta se abrió en jun 2025: el año parte de $0, así que no hay % de crecimiento.'}
               </p>
             </div>
             {[
-              ['Depósitos netos', dash.parts.deposits + dash.parts.toCrypto, 'aportes − traspasos a crypto'],
+              ['Depósitos netos', grow.deposits, 'aportes a bolsa y compras de crypto'],
               ['Ventas de acciones', dash.parts.realized, 'ganancia realizada'],
               ['Dividendos y cargos', dash.parts.dv, 'dividendos netos − intereses de margen'],
-              ['No realizada', dash.parts.unrealized, 'variación de precio en cartera']
+              ['No realizada', grow.unrealized, `precio en cartera · BTC ${sg(grow.crypto)}`]
             ].map(([label, v, meta], i) => (
               <div className="card kpi reveal" style={{ '--i': i + 1 }} key={label}>
                 <span className="kpi-label">{label}</span>
@@ -1392,20 +1407,20 @@ function App() {
               f={f}
               sg={sg}
               steps={[
-                { label: 'Inicio', short: 'Inicio', v: dash.startValue, kind: 'total' },
-                { label: 'Depósitos', short: 'Dep.', v: dash.parts.deposits, kind: 'delta', share: share(dash.parts.deposits) },
-                { label: 'A crypto', short: 'Crypto', v: dash.parts.toCrypto, kind: 'delta', share: share(dash.parts.toCrypto) },
+                { label: 'Inicio', short: 'Inicio', v: grow.start, kind: 'total' },
+                { label: 'Depósitos', short: 'Dep.', v: grow.deposits, kind: 'delta', share: share(grow.deposits) },
                 { label: 'Ventas', short: 'Ventas', v: dash.parts.realized, kind: 'delta', share: share(dash.parts.realized) },
                 { label: 'Dividendos y cargos', short: 'Div.', v: dash.parts.dv, kind: 'delta', share: share(dash.parts.dv) },
                 { label: 'No realizada', short: 'No real.', v: dash.parts.unrealized, kind: 'delta', share: share(dash.parts.unrealized) },
-                { label: endLabel, short: dash.lastMonth.endsWith('-12') ? 'Cierre' : 'Corte', v: dash.endValue, kind: 'total' }
+                { label: 'Crypto (BTC)', short: 'BTC', v: grow.crypto, kind: 'delta', share: share(grow.crypto) },
+                { label: endLabel, short: dash.lastMonth.endsWith('-12') ? 'Cierre' : 'Corte', v: grow.end, kind: 'total' }
               ]}
             />
           </div>
 
           <div className="section reveal">
             <div className="section-header">
-              <h2 className="section-title">Origen del crecimiento <span className="section-sub">{`${f(dash.startValue)} → ${f(dash.endValue)}`}</span></h2>
+              <h2 className="section-title">Origen del crecimiento <span className="section-sub">{`${f(grow.start)} → ${f(grow.end)}`}</span></h2>
             </div>
             <div className="card table-card">
               <div className="table-scroll">
@@ -1415,13 +1430,16 @@ function App() {
                   </thead>
                   <tbody>
                     {[
-                      ['Depósitos desde HAPI', dash.parts.deposits, ''],
-                      ['Traspasos a crypto (Bakkt)', dash.parts.toCrypto, ''],
+                      ['Depósitos netos', grow.deposits, ''],
+                      ['Bolsa (HAPI − traspasos a crypto)', grow.netBolsa, 'sub'],
+                      ['Compras de crypto (Bakkt)', grow.netCrypto, 'sub'],
                       ['Ganancia realizada', dash.parts.realized + dash.parts.dv, ''],
                       ['Ventas de acciones', dash.parts.realized, 'sub'],
                       ['Dividendos netos', dash.parts.divNet, 'sub'],
                       ...(Math.abs(dash.parts.charges) > 0.004 ? [['Intereses y cargos de margen', dash.parts.charges, 'sub']] : []),
-                      ['No realizada', dash.parts.unrealized, '']
+                      ['No realizada', grow.unrealized, ''],
+                      ['Bolsa', dash.parts.unrealized, 'sub'],
+                      ['Crypto (BTC)', grow.crypto, 'sub']
                     ].map(([label, v, kind]) => (
                       <tr key={label} className={kind === 'sub' ? 'row-sub' : ''}>
                         <td className={kind === 'sub' ? '' : 'strong'}>{label}</td>
@@ -1431,7 +1449,7 @@ function App() {
                     ))}
                     <tr className="row-total">
                       <td>Crecimiento total</td>
-                      <td>{sg(dash.growth)}</td>
+                      <td>{sg(grow.total)}</td>
                       <td>100%</td>
                     </tr>
                   </tbody>
