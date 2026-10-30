@@ -527,6 +527,92 @@ function Waterfall({ steps, f, sg }) {
 }
 
 // --- COMPONENTE PRINCIPAL: APP ---
+// --- HORIZONTE: LARGO PLAZO (ETF, incluido GLD) VS CORTO PLAZO (todo lo demás) ---
+const LONG_TERM = new Set(['QQQ', 'TQQQ', 'GLD', 'VOO', 'VT', 'VGT', 'SMH', 'SCHD', 'SPY']);
+
+function HorizonChart({ holdings, total, f }) {
+  // Ajustes propios sobre el reparto por defecto: { ticker: 'largo' | 'corto' }, guardados en este navegador
+  const [overrides, setOverrides] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hapi_horizon') || '{}') || {}; } catch (e) { return {}; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('hapi_horizon', JSON.stringify(overrides)); } catch (e) {}
+  }, [overrides]);
+  const defaultOf = k => (LONG_TERM.has(k) ? 'largo' : 'corto');
+  const groupOf = k => overrides[k] || defaultOf(k);
+  const move = k => {
+    const next = groupOf(k) === 'largo' ? 'corto' : 'largo';
+    setOverrides(o => {
+      const n = { ...o };
+      if (next === defaultOf(k)) delete n[k]; else n[k] = next;
+      return n;
+    });
+  };
+  const custom = holdings.some(h => overrides[h.key]);
+  const groups = [
+    { key: 'largo', label: 'Largo plazo', sub: custom ? 'a tu elección' : 'ETF', items: holdings.filter(h => groupOf(h.key) === 'largo') },
+    { key: 'corto', label: 'Corto plazo', sub: custom ? 'a tu elección' : 'acciones, crypto y efectivo', items: holdings.filter(h => groupOf(h.key) === 'corto') }
+  ].map(g => {
+    const v = g.items.reduce((t, h) => t + h.v, 0);
+    return { ...g, v, pct: total > 0 ? (v / total) * 100 : 0 };
+  });
+  // Dona con stroke-dasharray: un círculo por grupo, separado por un hueco de 1.5°
+  const size = 180, sw = 22, r = (size - sw) / 2, C = 2 * Math.PI * r, gap = groups.every(g => g.v > 0) ? C * (1.5 / 360) : 0;
+  let offset = 0;
+  return (
+    <div className="card chart-card horizon">
+      <div className="horizon-donut">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img"
+          aria-label={groups.map(g => `${g.label} ${g.pct.toFixed(1)}%`).join(', ')}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--gray-bg)" strokeWidth={sw} />
+          {groups.map(g => {
+            const len = (g.pct / 100) * C;
+            const seg = (
+              <circle key={g.key} className={`horizon-seg ${g.key}`} cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={sw}
+                strokeDasharray={`${Math.max(0, len - gap)} ${C}`} strokeDashoffset={-offset} transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+                <title>{`${g.label}: ${f(g.v)} · ${g.pct.toFixed(1)}%`}</title>
+              </circle>
+            );
+            offset += len;
+            return seg;
+          })}
+          <text className="horizon-center-val" x="50%" y="47%" textAnchor="middle">{`${groups[0].pct.toFixed(1)}%`}</text>
+          <text className="horizon-center-lab" x="50%" y="60%" textAnchor="middle">largo plazo</text>
+        </svg>
+      </div>
+      <div className="horizon-groups">
+        {groups.map(g => (
+          <div key={g.key} className="horizon-group">
+            <div className="horizon-group-head">
+              <span className="legend-item"><span className={`legend-chip horizon-chip ${g.key}`}></span><b>{g.label}</b><span className="ticker-name">{g.sub}</span></span>
+              <span className="horizon-group-val"><b>{f(g.v)}</b><span>{g.pct.toFixed(1)}%</span></span>
+            </div>
+            <div className="split-bar"><span className={`split-seg horizon-chip ${g.key}`} style={{ width: `${g.pct}%` }}></span></div>
+            <ul className="horizon-list">
+              {g.items.map(h => (
+                <li key={h.key}>
+                  <TickerCell y={h.key} size={22} />
+                  <span>{f(h.v)}</span>
+                  <span className="horizon-pct">{h.pct.toFixed(1)}%</span>
+                  <button className="horizon-move" onClick={() => move(h.key)}
+                    title={`Pasar ${h.key} a ${g.key === 'largo' ? 'corto' : 'largo'} plazo`}
+                    aria-label={`Pasar ${h.key} a ${g.key === 'largo' ? 'corto' : 'largo'} plazo`}>
+                    {g.key === 'largo' ? '→' : '←'}
+                  </button>
+                </li>
+              ))}
+              {!g.items.length && <li className="horizon-empty">Sin activos · usa las flechas para moverlos aquí</li>}
+            </ul>
+          </div>
+        ))}
+        {custom && (
+          <button className="btn ghost horizon-reset" onClick={() => setOverrides({})}>Restablecer (ETF = largo plazo)</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const engine = window.HapiEngine;
   if (!engine) {
@@ -1342,6 +1428,15 @@ function App() {
               La barra de periodos es la misma de la pestaña Bolsa (cambiarla aquí también la cambia allá). Esta tabla siempre muestra la distribución de hoy.
               Las fechas no coinciden: la bolsa es el cierre del 30 sep 2026 y crypto {crypto.live ? 'usa el precio actual' : `el corte del ${fd(crypto.cutDate)}`}.
             </p>
+          </div>
+
+          {/* HORIZONTE: LARGO VS CORTO PLAZO */}
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Largo vs corto plazo <span className="section-sub">ETF por defecto, ajustable · % del patrimonio de hoy</span></h2>
+            </div>
+            <HorizonChart holdings={total.holdings} total={totalWealth} f={f} />
+            <p className="note">Por defecto, largo plazo agrupa todos los ETF (incluido GLD, el oro); corto plazo, las acciones individuales, el BTC y el efectivo de la cuenta. Con las flechas pasas cualquier activo al otro grupo; tu elección se guarda en este navegador.</p>
           </div>
         </section>
       )}

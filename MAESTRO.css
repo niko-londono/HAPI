@@ -217,6 +217,37 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; whit
 .split-dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 .weight-fill.crypto { background: var(--cum); }
 
+/* TOTAL: largo vs corto plazo */
+.horizon { display: grid; grid-template-columns: auto 1fr; gap: 32px; align-items: start; padding: 24px; }
+.horizon-donut svg { display: block; }
+.horizon-seg { transition: opacity var(--t); }
+.horizon-seg:hover { opacity: .82; }
+.horizon-seg.largo { stroke: var(--s1); } .horizon-seg.corto { stroke: var(--s2); }
+.horizon-chip.largo { background: var(--s1); } .horizon-chip.corto { background: var(--s2); }
+.horizon-center-val { fill: var(--text-main); font: 34px var(--font-serif); }
+.horizon-center-lab { fill: var(--text-muted); font: 11px var(--font-mono); }
+.horizon-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.horizon-group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; color: var(--text-main); }
+.horizon-group-head b { font-weight: 600; }
+.horizon-group-val { display: inline-flex; gap: 8px; align-items: baseline; }
+.horizon-group-val span { font: 12px var(--font-mono); color: var(--text-muted); }
+.horizon .split-bar { background: var(--gray-bg); border-radius: 3px; margin-bottom: 12px; }
+.horizon-list { list-style: none; display: grid; gap: 6px; }
+.horizon-list li { display: grid; grid-template-columns: 1fr auto 52px 26px; gap: 10px; align-items: center; font-size: 13px; color: var(--text-body); }
+.horizon-pct { font: 12px var(--font-mono); color: var(--text-muted); text-align: right; }
+.horizon-move { width: 26px; height: 24px; border: 1px solid var(--border); border-radius: var(--radius-xs); background: transparent; color: var(--text-muted); font-size: 13px; line-height: 1; cursor: pointer; transition: color var(--t), border-color var(--t), background-color var(--t); }
+.horizon-move:hover { color: var(--text-main); border-color: var(--border-strong); background: var(--surface-hover); }
+.horizon-list li.horizon-empty { display: block; font-size: 12px; color: var(--text-dim); }
+.horizon-reset { grid-column: 1 / -1; justify-self: start; }
+@media (max-width: 900px) {
+  .horizon { grid-template-columns: 1fr; justify-items: center; }
+  .horizon-groups { width: 100%; }
+}
+@media (max-width: 640px) {
+  .horizon { padding: 18px 16px; }
+  .horizon-groups { grid-template-columns: 1fr; gap: 22px; }
+}
+
 /* DASHBOARD */
 .kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .kpi-row .kpi { padding: 16px 18px; }
