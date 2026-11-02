@@ -48,6 +48,16 @@
   // Series fijas del gráfico de dividendos (el color sigue a la acción, nunca al ranking); el resto va a "Otros"
   const DIV_KEYS = ['VOO', 'MSFT', 'META', 'QQQ', 'TQQQ'];
 
+  // Margen (cuenta de margen desde 2026-07-02). Efectivo al cierre de jun 2026 (FDIC 200.08 + saldo 2.64), flujos fechados
+  // (formato: YYMMDD,monto; + entra, − sale; incluye el interés bancario de 0.01) e intereses de margen ya cobrados [fecha, monto].
+  const MARGIN = {
+    startDate: '260701',
+    startCash: 202.72,
+    rate: 0.08,
+    flows: '260716,0.01;260731,420;260811,-404;260817,394;260901,325;261028,750',
+    charges: [['2026-08-15', 2.00]]
+  };
+
   // Nombres completos de los activos
   const N = {
     GOOGL: 'Alphabet',
@@ -335,6 +345,96 @@
     return [...new Set(data.R.map(r => r.m.slice(0, 4)))];
   }
 
+  // Margen: reconstruye el efectivo día a día (compras, ventas, dividendos, aportes, retiros, intereses) y mide cuánto de cada
+  // compra se pagó con margen (aumento de la deuda). Ganancia con margen = ganancia de esas acciones (costo promedio):
+  // realizada al vender y no realizada al corte. Es una estimación: se usa la fecha de operación y, el mismo día, entradas antes que compras.
+  function computeMargin(data, year) {
+    const dates = d => `20${d.slice(0, 2)}-${d.slice(2, 4)}-${d.slice(4, 6)}`;
+    const prio = { in: 0, sell: 1, out: 2, buy: 3 };
+    const ev = [];
+    data.T.forEach((o, i) => {
+      if (o.t === 'X') return;
+      ev.push({ d: o.d, k: o.t === 'B' ? 'buy' : 'sell', o, i });
+    });
+    DIV_RAW.split(';').forEach(s => { const [d, , g, w] = s.split(','); ev.push({ d, k: 'in', a: r2(+g - +w) }); });
+    MARGIN.flows.split(';').forEach(s => { const [d, a] = s.split(','); ev.push({ d, k: +a >= 0 ? 'in' : 'out', a: +a }); });
+    MARGIN.charges.forEach(([d, a]) => ev.push({ d: d.replace(/-/g, '').slice(2), k: 'out', a: -a, charge: true }));
+    ev.forEach((e, n) => { e.n = n; });
+    ev.sort((a, b) => a.d.localeCompare(b.d) || prio[a.k] - prio[b.k] || a.n - b.n);
+
+    const st = {}; // por ticker: acciones totales y acciones pagadas con margen
+    let cash = MARGIN.startCash;
+    const trades = [];
+    const debtByDay = []; // [fecha, deuda al cierre del día]
+    ev.forEach(e => {
+      const isOp = e.o;
+      if (isOp) {
+        const o = e.o;
+        const t = st[o.y] || (st[o.y] = { q: 0, mq: 0 });
+        if (e.k === 'buy') {
+          const before = Math.max(0, -cash);
+          if (o.d >= MARGIN.startDate) cash -= o.a;
+          const m = o.d >= MARGIN.startDate ? Math.min(o.a, Math.max(0, Math.max(0, -cash) - before)) : 0;
+          if (m > 0.004) trades.push({ date: dt(o.d), m: o.m, y: o.y, name: N[o.y] || o.y, q: o.q, amount: o.a, margin: m });
+          t.q += o.q; t.mq += o.q * (m / o.a);
+        } else {
+          const frac = t.q > 0 ? t.mq / t.q : 0;
+          if (o.d >= MARGIN.startDate) cash += o.a;
+          o.mg = o.g * frac; // ganancia de la parte pagada con margen
+          t.mq -= o.q * frac; t.q -= o.q;
+        }
+      } else if (e.d >= MARGIN.startDate) {
+        cash += e.a;
+      }
+      if (e.d >= MARGIN.startDate) {
+        const debt = Math.max(0, -cash);
+        const last = debtByDay[debtByDay.length - 1];
+        if (last && last[0] === e.d) last[1] = debt; else debtByDay.push([e.d, debt]);
+      }
+    });
+    // Tramos con deuda: cada día cuenta hasta el siguiente movimiento (los intereses se calculan sobre el saldo al cierre de cada día)
+    const endDate = (() => { const l = data.R[data.R.length - 1].m; return new Date(+l.slice(0, 4), +l.slice(5), 0); })();
+    const toDate = d => new Date(+dates(d).slice(0, 4), +dates(d).slice(5, 7) - 1, +dates(d).slice(8, 10));
+    const yr = String(year);
+    let debtDays = 0, peak = 0, accrued = 0, accruedUncharged = 0;
+    const lastCharge = MARGIN.charges.length ? new Date(MARGIN.charges[MARGIN.charges.length - 1][0] + 'T00:00:00') : null;
+    debtByDay.forEach(([d, debt], i) => {
+      const from = toDate(d);
+      const to = i + 1 < debtByDay.length ? toDate(debtByDay[i + 1][0]) : new Date(endDate.getTime() + 86400000);
+      const days = Math.round((to - from) / 86400000);
+      if (debt > 0.004 && dates(d).startsWith(yr)) debtDays += days;
+      if (dates(d).startsWith(yr)) peak = Math.max(peak, debt);
+      const interest = (debt * MARGIN.rate / 360) * days;
+      accrued += interest;
+      // la parte posterior al último cobro todavía no aparece en un estado de cuenta
+      if (!lastCharge || from > lastCharge) accruedUncharged += interest;
+    });
+
+    const months = data.R.filter(r => r.m.startsWith(yr)).map(r => {
+      const sold = data.T.filter(o => o.t === 'S' && o.m === r.m && o.mg != null && o.d >= MARGIN.startDate);
+      const gain = sold.reduce((t, o) => t + o.mg, 0);
+      const interest = MARGIN.charges.filter(c => c[0].startsWith(r.m)).reduce((t, c) => t + c[1], 0);
+      return { m: r.m, gain: r2(gain), interest: r2(interest), net: r2(gain - interest), sales: sold.filter(o => Math.abs(o.mg) > 0.004).map(o => ({ y: o.y, gain: o.mg })) };
+    });
+    const isLast = yr === data.R[data.R.length - 1].m.slice(0, 4);
+    const unrealizedRows = isLast ? data.positionsRows.filter(r => r.q > 0 && st[r.y] && st[r.y].mq > 1e-6).map(r => {
+      const frac = st[r.y].mq / st[r.y].q;
+      return { y: r.y, name: r.name, q: st[r.y].mq, cost: r.c * frac, value: r.v * frac, gain: r.u * frac };
+    }) : [];
+    const realized = months.reduce((t, x) => t + x.gain, 0);
+    const unrealized = unrealizedRows.reduce((t, x) => t + x.gain, 0);
+    const interestPaid = months.reduce((t, x) => t + x.interest, 0);
+    const buys = trades.filter(x => x.date.startsWith(yr));
+    return {
+      year: yr, used: buys.length > 0 || interestPaid > 0, months, trades: buys, unrealizedRows,
+      realized, unrealized, gain: realized + unrealized, interestPaid,
+      interestPending: isLast ? accruedUncharged : 0,
+      net: realized + unrealized - interestPaid - (isLast ? accruedUncharged : 0),
+      peakDebt: peak, debtDays, debtEnd: isLast ? Math.max(0, -(data.cashFdic)) : 0, isLast,
+      marginBought: buys.reduce((t, x) => t + x.margin, 0), accruedAll: accrued
+    };
+  }
+
   // Estadísticas de un año: crecimiento, dividendos, ventas y depósitos por mes
   function computeYearDashboard(data, year) {
     const idx = data.R.findIndex(r => r.m.startsWith(year));
@@ -599,6 +699,7 @@
     getPeriodSummary,
     getYears,
     computeYearDashboard,
+    computeMargin,
     computeTaxes,
     computeCrypto,
     fetchBtcSpot,

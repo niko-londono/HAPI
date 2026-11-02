@@ -631,6 +631,7 @@ function App() {
     getPeriodSummary,
     getYears,
     computeYearDashboard,
+    computeMargin,
     computeTaxes,
     computeCrypto,
     fetchBtcSpot,
@@ -740,6 +741,7 @@ function App() {
   const years = useMemo(() => getYears(portfolioData), [portfolioData]);
   const [dashYear, setDashYear] = useState(() => years[years.length - 1]);
   const dash = useMemo(() => computeYearDashboard(portfolioData, dashYear), [portfolioData, dashYear]);
+  const margin = useMemo(() => computeMargin(portfolioData, dashYear), [portfolioData, dashYear]);
   const divCls = k => (k === 'Otros' ? 's-other' : `s${['VOO', 'MSFT', 'META', 'QQQ', 'TQQQ'].indexOf(k) + 1}`);
   const endLabel = dash.lastMonth.endsWith('-12') ? 'Cierre' : `Corte ${lab(dash.lastMonth)}`;
 
@@ -1683,6 +1685,74 @@ function App() {
               Promedio mensual = ganancia realizada del año ÷ {dash.months.length} meses con estado de cuenta. El % mensual es el promedio de cada mes sobre su capital promedio;
               el rendimiento sobre lo vendido compara la ganancia con el costo promedio de las acciones vendidas.
             </p>
+          </div>
+
+          {/* 3b. MARGEN: GANANCIA VS INTERESES */}
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Margen <span className="section-sub">{margin.used ? 'ganancia con dinero prestado vs intereses' : `sin uso de margen en ${dashYear}`}</span></h2>
+            </div>
+            {!margin.used ? (
+              <div className="card"><p className="note" style={{ margin: 0 }}>La cuenta de margen se activó el 2 jul 2026; en {dashYear} no se usó dinero prestado.</p></div>
+            ) : (
+              <>
+                <div className="kpi-row">
+                  <div className="card kpi"><span className="kpi-label">Ganado con margen (est.)</span><b className={`kpi-val ${cls(margin.gain)}`}>{sg(margin.gain)}</b><span className="kpi-meta">{`realizada ${sg(margin.realized)}${margin.isLast ? ` · no realizada ${sg(margin.unrealized)}` : ''}`}</span></div>
+                  <div className="card kpi"><span className="kpi-label">Intereses de margen</span><b className="kpi-val n">{margin.interestPaid + margin.interestPending > 0 ? `-${f(margin.interestPaid + margin.interestPending)}` : f(0)}</b><span className="kpi-meta">{`pagados ${f(margin.interestPaid)}${margin.interestPending > 0.004 ? ` · por cobrar ≈ ${f(margin.interestPending)}` : ''}`}</span></div>
+                  <div className="card kpi"><span className="kpi-label">Resultado neto del margen</span><b className={`kpi-val ${cls(margin.net)}`}>{sg(margin.net)}</b><span className="kpi-meta">ganancia − intereses</span></div>
+                  <div className="card kpi"><span className="kpi-label">{margin.debtEnd > 0.004 ? 'Deuda al corte' : 'Pico de deuda'}</span><b className="kpi-val">{f(margin.debtEnd > 0.004 ? margin.debtEnd : margin.peakDebt)}</b><span className="kpi-meta">{`pico ${f(margin.peakDebt)} · ${margin.debtDays} días con deuda`}</span></div>
+                </div>
+                <div className="card table-card">
+                  <div className="table-scroll">
+                    <table className="data-table">
+                      <thead>
+                        <tr><th>Compra con margen</th><th>Acción</th><th>Cantidad</th><th>Monto</th><th>Pagado con margen</th></tr>
+                      </thead>
+                      <tbody>
+                        {margin.trades.slice().reverse().map((x, k) => (
+                          <tr key={k}>
+                            <td className="strong">{fd(x.date)}</td>
+                            <td title={x.name}><TickerCell y={x.y} size={22} /></td>
+                            <td>{x.q}</td>
+                            <td>{f(x.amount)}</td>
+                            <td>{f(x.margin)}</td>
+                          </tr>
+                        ))}
+                        <tr className="row-total"><td>Total</td><td></td><td></td><td>{f(margin.trades.reduce((t, x) => t + x.amount, 0))}</td><td>{f(margin.marginBought)}</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                {margin.unrealizedRows.length > 0 && (
+                  <div className="card table-card">
+                    <div className="table-scroll">
+                      <table className="data-table">
+                        <thead>
+                          <tr><th>Aún en cartera (parte con margen)</th><th>Acciones</th><th>Costo</th><th>Valor</th><th>No realizada</th></tr>
+                        </thead>
+                        <tbody>
+                          {margin.unrealizedRows.map(x => (
+                            <tr key={x.y}>
+                              <td title={x.name}><TickerCell y={x.y} size={22} /></td>
+                              <td>{+x.q.toFixed(4)}</td>
+                              <td className="neutral">{f(x.cost)}</td>
+                              <td>{f(x.value)}</td>
+                              <td className={cls(x.gain)}>{sg(x.gain)}</td>
+                            </tr>
+                          ))}
+                          <tr className="row-total"><td>Total</td><td></td><td>{f(margin.unrealizedRows.reduce((t, x) => t + x.cost, 0))}</td><td>{f(margin.unrealizedRows.reduce((t, x) => t + x.value, 0))}</td><td className={cls(margin.unrealized)}>{sg(margin.unrealized)}</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                <p className="note">
+                  Estimación: el efectivo se reconstruye día a día con las fechas de operación (el estado no trae saldo diario de margen) y cada compra se marca con la parte que subió la deuda.
+                  La ganancia con margen es la ganancia (costo promedio) de esas acciones, aunque la deuda se pague después; entradas antes que compras el mismo día.
+                  Los intereses pagados salen del estado de cuenta; los "por cobrar" se calculan al 8% anual sobre la deuda de cada día (así se obtienen exactamente los $2.00 de agosto) y aparecerán en el estado de noviembre.
+                </p>
+              </>
+            )}
           </div>
 
           {/* 4. DEPÓSITOS POR MES */}
