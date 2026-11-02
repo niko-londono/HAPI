@@ -11,7 +11,7 @@ El proyecto está organizado en **3 archivos maestros** desacoplados, limpios y 
 1. **`MAESTRO.js`** *(Motor de Datos y Lógica Financiera)*:
    - Datos crudos: `D` (estados mensuales), `T_RAW` (historial de operaciones), `PR` (precios de activos al cierre), `N` (catálogo de nombres) y `X` (traspasos a Bakkt Crypto).
    - Motor de cálculo: algoritmo de costo promedio por activo, cálculo de ganancias realizadas por operación y mes, cálculo de ganancias no realizadas (`ur`), rendimiento total mensual (`pl`) y base de capital promedio ponderado (Modified Dietz).
-   - Consulta a Yahoo Finance vía proxies CORS con respaldos y persistencia en `localStorage`.
+   - Precio BTC en vivo desde APIs públicas (Coinbase → Kraken → CoinGecko) con persistencia en `localStorage`.
    - Funciones utilitarias de formateo monetario, porcentual y fechas.
 
 2. **`MAESTRO.css`** *(Sistema de Diseño y Estilos)*:
@@ -30,7 +30,7 @@ El proyecto está organizado en **3 archivos maestros** desacoplados, limpios y 
      - *Operaciones*: filtro por tipo de orden (Compras, Ventas, Splits) y búsqueda por ticker.
    - **Módulo Crypto (Bakkt)**:
      - Lotes BTC reales tomados de la foto "Share Lots" (ver `HAPI_crypto.md`), con valor, ganancia y costo promedio.
-     - Precio del corte por defecto; opción de precio en vivo (Yahoo Finance) o manual para revaluar.
+     - Precio del corte por defecto; opción de precio en vivo (Coinbase, con Kraken y CoinGecko de respaldo) o manual con botón Guardar para revaluar.
      - Gráfico del costo por BTC de cada lote frente al precio actual y al costo promedio.
      - Conciliación de los traspasos "Journal to BAKKT" de la bolsa con cada lote.
 

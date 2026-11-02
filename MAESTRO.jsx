@@ -857,13 +857,13 @@ function App() {
     saveBtcStorage(next);
   };
 
-  // Precio en vivo vía Yahoo Finance
+  // Precio en vivo (Coinbase → Kraken → CoinGecko)
   const handleUpdateBtc = async () => {
     setIsUpdatingBtc(true);
     setBtcError('');
     try {
       const res = await fetchBtcSpot();
-      applyBtcPrice({ spot: res.spot, timestamp: res.timestamp, source: 'live' });
+      applyBtcPrice({ spot: res.spot, timestamp: `${res.timestamp} · ${res.provider}`, source: 'live' });
     } catch (err) {
       console.error(err);
       setBtcError('No se pudo consultar el precio en vivo. Ingrésalo manualmente.');
@@ -876,16 +876,19 @@ function App() {
     e.preventDefault();
     const num = parseFloat(manualInput);
     if (!isNaN(num) && num > 0) {
-      applyBtcPrice({ spot: num, timestamp: '', source: 'manual' });
+      const timestamp = new Date().toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+      applyBtcPrice({ spot: num, timestamp, source: 'manual' });
       setManualInput('');
       setBtcError('');
+    } else {
+      setBtcError('Escribe un precio de BTC mayor que cero.');
     }
   };
 
   const priceSourceLabel = !crypto.live
     ? `Precio del corte · ${fd(crypto.cutDate)}`
     : btcPrice.source === 'manual'
-      ? 'Precio manual'
+      ? `Precio manual${btcPrice.timestamp ? ` · guardado ${btcPrice.timestamp}` : ''}`
       : `En vivo · ${btcPrice.timestamp}`;
 
   const periodKeys = ['1M', '3M', '6M', 'YTD', '1A', '2025', '2026', 'ALL'];
@@ -1165,6 +1168,7 @@ function App() {
               </button>
               <form className="manual-price" onSubmit={handleManualPrice}>
                 <input type="number" step="any" min="0" placeholder="Precio manual" aria-label="Precio manual de BTC" value={manualInput} onChange={e => setManualInput(e.target.value)} />
+                <button type="submit" className="btn ghost" disabled={!manualInput}>Guardar</button>
               </form>
               {crypto.live && <button className="btn ghost" onClick={() => applyBtcPrice({ spot: null })}>Usar corte</button>}
             </div>

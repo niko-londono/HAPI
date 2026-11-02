@@ -518,36 +518,40 @@
     };
   }
 
-  // --- CONSULTA DEL PRECIO BTC VIA YAHOO FINANCE & PROXIES CORS ---
+  // --- CONSULTA DEL PRECIO BTC (APIS PÚBLICAS CON CORS, SIN PROXY) ---
+  // Se prueban en orden; cada una con tiempo límite. Los proxies de Yahoo (allorigins, corsproxy.io) dejaron de funcionar en nov 2026.
+
+  const BTC_SOURCES = [
+    { name: 'Coinbase', url: 'https://api.coinbase.com/v2/prices/BTC-USD/spot', read: d => parseFloat(d.data.amount) },
+    { name: 'Kraken', url: 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD', read: d => parseFloat(Object.values(d.result)[0].c[0]) },
+    { name: 'CoinGecko', url: 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', read: d => d.bitcoin.usd }
+  ];
 
   async function fetchBtcSpot() {
-    const queryUrl = encodeURIComponent('https://query2.finance.yahoo.com/v8/finance/chart/BTC-USD?range=5d&interval=1d');
-    const proxies = [
-      'https://api.allorigins.win/raw?url=',
-      'https://corsproxy.io/?'
-    ];
-
     let lastError = null;
 
-    for (const proxy of proxies) {
+    for (const source of BTC_SOURCES) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 6000);
       try {
-        const response = await fetch(proxy + queryUrl);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        const spot = data.chart.result[0].meta.regularMarketPrice;
-        if (!(spot > 0)) throw new Error('Respuesta sin precio');
+        const response = await fetch(source.url, { signal: ctrl.signal, cache: 'no-store' });
+        if (!response.ok) throw new Error(`${source.name}: HTTP ${response.status}`);
+        const spot = source.read(await response.json());
+        if (!(spot > 0)) throw new Error(`${source.name}: respuesta sin precio`);
         const timestampStr = new Date().toLocaleString('es-ES', {
           dateStyle: 'medium',
           timeStyle: 'short'
         });
 
-        return { spot, timestamp: timestampStr };
+        return { spot, timestamp: timestampStr, provider: source.name };
       } catch (err) {
         lastError = err;
+      } finally {
+        clearTimeout(timer);
       }
     }
 
-    throw lastError || new Error('No se pudo conectar a los proxies de Yahoo Finance');
+    throw lastError || new Error('No se pudo consultar el precio de BTC');
   }
 
   // --- PERSISTENCIA EN LOCALSTORAGE ---

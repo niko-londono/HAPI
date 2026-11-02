@@ -196,6 +196,7 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; whit
 .search-input-wrapper { position: relative; display: inline-flex; align-items: center; }
 .search-icon { position: absolute; left: 10px; color: var(--text-dim); display: flex; pointer-events: none; }
 .search-input-wrapper input, .manual-price input { background: var(--input); border: 1px solid var(--border); color: var(--text-main); padding: 6px 12px 6px 30px; border-radius: var(--radius-sm); font-size: 13px; width: 184px; transition: border-color var(--t), box-shadow var(--t); }
+.manual-price { display: flex; gap: 6px; }
 .manual-price input { width: 148px; padding-left: 12px; font-family: var(--font-mono); font-size: 12.5px; }
 .search-input-wrapper input:hover, .manual-price input:hover { border-color: var(--border-strong); }
 .search-input-wrapper input:focus, .manual-price input:focus { border-color: var(--focus); box-shadow: 0 0 0 3px var(--blue-bg); outline: none; }
