@@ -1,6 +1,6 @@
 # HAPI · Portafolio de Inversiones
 
-Dashboard web moderno e interactivo para el seguimiento y resumen consolidado de inversiones en bolsa y crypto a partir de los estados de cuenta mensuales de Apex Clearing y HAPI (jun 2025 – sep 2026).
+Dashboard web moderno e interactivo para el seguimiento y resumen consolidado de inversiones en bolsa y crypto a partir de los estados de cuenta mensuales de Apex Clearing y HAPI (jun 2025 – oct 2026).
 
 ---
 

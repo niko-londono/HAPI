@@ -901,7 +901,7 @@ function App() {
             <h1>Portafolio HAPI</h1>
             <div className="brand-sub">
               {activeTab === 'bolsa'
-                ? 'Bolsa · Apex Clearing · jun 2025 – sep 2026 · USD'
+                ? 'Bolsa · Apex Clearing · jun 2025 – oct 2026 · USD'
                 : activeTab === 'crypto'
                   ? `Crypto · Bakkt · corte ${fd(crypto.cutDate)} · USD`
                   : activeTab === 'total'
@@ -925,7 +925,7 @@ function App() {
       {/* PESTAÑAS PRINCIPALES */}
       <nav className="tabs-nav" aria-label="Portafolios">
         <button className={`tab-btn ${activeTab === 'bolsa' ? 'active' : ''}`} onClick={() => setActiveTab('bolsa')}>
-          Bolsa <span className="tab-count">16 meses</span>
+          Bolsa <span className="tab-count">17 meses</span>
         </button>
         <button className={`tab-btn ${activeTab === 'crypto' ? 'active' : ''}`} onClick={() => setActiveTab('crypto')}>
           Crypto <span className="tab-count">{crypto.lots.length} lotes</span>
@@ -995,7 +995,7 @@ function App() {
           {/* TABLA DE POSICIONES Y ACTIVOS */}
           <div className="section reveal">
             <div className="section-header">
-              <h2 className="section-title">Posiciones <span className="section-sub">precios al 30 sep 2026</span></h2>
+              <h2 className="section-title">Posiciones <span className="section-sub">precios al 31 oct 2026</span></h2>
               <div className="search-input-wrapper">
                 <span className="search-icon"><Icons.Search /></span>
                 <input type="search" placeholder="Buscar activo" aria-label="Buscar activo" value={posSearch} onChange={e => setPosSearch(e.target.value)} />
@@ -1042,7 +1042,7 @@ function App() {
                       <tr><td colSpan={8} className="empty-row">No hay activos que coincidan con la búsqueda.</td></tr>
                     )}
                     <tr className="row-total">
-                      <td>Efectivo / FDIC</td>
+                      <td>{portfolioData.cashFdic < 0 ? 'Margen (deuda)' : 'Efectivo / FDIC'}</td>
                       <td></td>
                       <td></td>
                       <td></td>
@@ -1213,7 +1213,7 @@ function App() {
             <div className="card kpi reveal" style={{ '--i': 4 }}>
               <span className="kpi-label">Patrimonio total</span>
               <b className="kpi-val">{f(totalWealth)}</b>
-              <span className="kpi-meta">{`Crypto ${((crypto.mv / totalWealth) * 100).toFixed(1)}% · bolsa a 30 sep`}</span>
+              <span className="kpi-meta">{`Crypto ${((crypto.mv / totalWealth) * 100).toFixed(1)}% · bolsa a 31 oct`}</span>
             </div>
           </div>
 
@@ -1426,7 +1426,7 @@ function App() {
             <p className="note">
               Bolsa según los estados de cuenta de Apex; crypto tal como aparece en la pestaña Crypto (lotes de BTC a su costo y al precio vigente).
               La barra de periodos es la misma de la pestaña Bolsa (cambiarla aquí también la cambia allá). Esta tabla siempre muestra la distribución de hoy.
-              Las fechas no coinciden: la bolsa es el cierre del 30 sep 2026 y crypto {crypto.live ? 'usa el precio actual' : `el corte del ${fd(crypto.cutDate)}`}.
+              Las fechas no coinciden: la bolsa es el cierre del 31 oct 2026 y crypto {crypto.live ? 'usa el precio actual' : `el corte del ${fd(crypto.cutDate)}`}.
             </p>
           </div>
 

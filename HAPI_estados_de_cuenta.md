@@ -1,6 +1,6 @@
 # HAPI — Base de datos consolidada de estados de cuenta (Apex Clearing)
 
-> **Cobertura actual:** Jun 2025 a Sep 2026 (16 PDFs, 16 meses). **Ultimo mes incorporado: Sep 2026.**  
+> **Cobertura actual:** Jun 2025 a Oct 2026 (17 PDFs, 17 meses). **Ultimo mes incorporado: Oct 2026.**  
 > **Fuente:** estados de cuenta mensuales de la cuenta de inversion HAPI (corredor introductor HAPI, custodio Apex Clearing Corporation). Moneda: USD.  
 > **Objetivo de este archivo:** que NO haga falta volver a leer los PDFs ya procesados. Para un mes nuevo se lee SOLO el PDF nuevo y se anexa su informacion aqui (ver seccion 0).  
 > **Validacion:** todos los meses cuadran contra los totales impresos en los PDFs (suma de posiciones = Securities; Securities + FDIC + Cash = valor total; suma de compras/ventas = totales de la seccion de actividad; saldo de apertura = cierre del mes anterior; dividendos = YTD impreso).
@@ -56,7 +56,8 @@
 | Jul 2026 | 6522.29 | 7084.81 | 0.00 | 42.49 | **7127.30** | 420.00 | 0.00 | 0.00 | 185.01 | 3992.57 | 3411.63 |
 | Ago 2026 | 7127.30 | 7391.27 | 100.89 | 0.00 | **7492.16** | 394.00 | 404.00 | 0.00 | 374.86 | 1009.74 | 1080.14 |
 | Sep 2026 | 7492.16 | 7278.33 | 1087.69 | 1.78 | **8367.80** | 325.00 | 0.00 | 0.00 | 550.64 | 1651.45 | 2310.60 |
-| **Total** | | | | | **8367.80** | **8141.37** | **1074.73** | **0.92** | **1300.24** | 17620.39 | 11625.77 |
+| Oct 2026 | 8367.80 | 8078.84 | 0.00 | -47.13 | **8031.71** | 750.00 | 0.00 | 0.00 | -1086.09 | 3073.20 | 1185.96 |
+| **Total** | | | | | **8031.71** | **8891.37** | **1074.73** | **0.92** | **214.15** | 20693.59 | 12811.73 |
 
 Notas por mes:
 
@@ -76,6 +77,7 @@ Notas por mes:
 - **Jul 2026:** CAMBIO DE CUENTA: desde el 07-02 la cartera pasa a cuenta de MARGEN (tipo M; el PDF muestra "Approved for Margin"). Los ~34 movimientos TFR CASH TO MARGIN / MARGIN TO CASH / TYP son traspasos internos entre sub-cuentas: NO son flujos ni operaciones. NFLX y SPOT salen completos. El efectivo ya no aparece como FDIC sweep al cierre sino como saldo de margen (42.49). El PDF tiene 14 paginas.
 - **Ago 2026:** Primer cargo por interes de margen (debit interest): 2.00 (periodo 07-16 a 08-15, tasa 8%, saldo promedio 643). El PDF trae la pagina 2 con una tabla de "YTD" y de ahi en adelante las paginas numeradas corridas.
 - **Sep 2026:** Se vende TODO el TQQQ (queda en 0) y se rota META -> GOOGL (GOOGL pasa a ser la posicion mas grande, 28.6%). Los 1,084.60 de la venta de TQQQ quedaron como efectivo (FDIC sweep).
+- **Oct 2026:** Se vuelve a abrir TQQQ con 7 compras (36.24837, pasa a ser la 2a posicion) usando el efectivo de septiembre; ventas parciales de MSFT (0.7 + 0.6) y META (0.66); compra de GOOGL el 10-27. Mes de fuerte caida (-1,086.09): META -52% y MSFT -51% en valor por las ventas, pero tambien bajan GOOGL, TQQQ y SMH de precio. Cierre con saldo de margen NEGATIVO (-47.13, debito al 0.58%): el aporte de 750.00 del 10-28 no alcanzo a cubrir las compras. Hay 4 journals internos de 18 TQQQ entre tipo 2 y 7 (10-19/10-20) y traspasos TFR CASH/MARGIN: ignorar. Debit interest 0.00 este mes.
 
 ---
 
@@ -115,8 +117,9 @@ Tipo: **Aporte** = Journal from HAPI; **Retiro** = Journal to BAKKT (pasa a Cryp
 | 2026-08-11 | Retiro (a Bakkt/Crypto) | 404.00 |
 | 2026-08-17 | Aporte | 394.00 |
 | 2026-09-01 | Aporte | 325.00 |
+| 2026-10-28 | Aporte | 750.00 |
 
-**Totales:** aportes 8141.37 | retiros 1074.73 | entradas desde Bakkt 0.92 | **capital neto aportado 7067.56**.
+**Totales:** aportes 8891.37 | retiros 1074.73 | entradas desde Bakkt 0.92 | **capital neto aportado 7817.56**.
 
 ---
 
@@ -150,14 +153,15 @@ Tipo: **Aporte** = Journal from HAPI; **Retiro** = Journal to BAKKT (pasa a Cryp
 | 2026-09-14 | GOOGL | 0.71 | 0.21 | 0.50 |
 | 2026-09-28 | META | 0.80 | 0.24 | 0.56 |
 | 2026-09-30 | VOO | 2.54 | 0.76 | 1.78 |
+| 2026-10-08 | QQQ | 0.92 | 0.28 | 0.64 |
 
 Totales por periodo:
 
 | Periodo | Bruto | Retencion | Neto |
 |---|---:|---:|---:|
 | 2025 (jun-dic) | 6.28 | 1.89 | 4.39 |
-| 2026 (ene-sep) | 20.17 | 6.05 | 14.12 |
-| **Total** | **26.45** | **7.94** | **18.51** |
+| 2026 (ene-oct) | 21.09 | 6.33 | 14.76 |
+| **Total** | **27.37** | **8.22** | **19.15** |
 
 Otros: intereses bancarios recibidos 0.02 (05-18: 0.01; 07-16: 0.01); intereses de margen pagados 2.00 (ago 2026).
 
@@ -354,6 +358,19 @@ Formato: simbolo | cantidad | precio | valor. El "% cartera" se puede recalcular
 | GLD | 1.19124 | 380.84 | 453.67 |
 | VOO | 1.39456 | 700.86 | 977.39 |
 | SMH | 0.2788 | 609.00 | 169.79 |
+
+### Oct 2026 — Securities 8078.84 | FDIC 0.00 | Efectivo/Margen -47.13 | **Total 8031.71**
+
+| Simbolo | Cantidad | Precio | Valor |
+|---|---:|---:|---:|
+| GOOGL | 8.20004 | 279.84 | 2294.70 |
+| META | 0.85914 | 614.99 | 528.36 |
+| QQQ | 1.22349 | 690.49 | 844.81 |
+| MSFT | 1.19708 | 521.91 | 624.77 |
+| TQQQ | 36.24837 | 62.01 | 2247.76 |
+| GLD | 1.19124 | 355.78 | 423.82 |
+| VOO | 1.39456 | 694.81 | 968.95 |
+| SMH | 0.2788 | 522.49 | 145.67 |
 
 Simbolos: QQQ = Invesco QQQ Trust; SCHD = Schwab US Dividend Equity ETF; VT = Vanguard Total World Stock ETF; VOO = Vanguard S&P 500 ETF; NDAQ = Nasdaq Inc; SPY = SPDR S&P 500 ETF Trust; GOOGL = Alphabet Inc Clase A; NVDA = NVIDIA; META = Meta Platforms Clase A; VGT = Vanguard Information Technology ETF; NFLX = Netflix; SPOT = Spotify Technology; TQQQ = ProShares UltraPro QQQ (3x); AMZN = Amazon; MSFT = Microsoft; GLD = SPDR Gold Shares; SMH = VanEck Semiconductor ETF.
 
@@ -578,20 +595,38 @@ Total compras 1009.74 | Total ventas 1080.14
 
 Total compras 1651.45 | Total ventas 2310.60
 
+### Oct 2026
+
+| Fecha | Op. | Simbolo | Cantidad | Precio | Importe |
+|---|---|---|---:|---:|---:|
+| 2026-10-09 | COMPRA | TQQQ | 3.05362 | 81.87 | 250.15 |
+| 2026-10-09 | COMPRA | TQQQ | 3.13174 | 79.8277 | 250.15 |
+| 2026-10-14 | COMPRA | TQQQ | 6.40223 | 78.0977 | 500.15 |
+| 2026-10-14 | VENTA | MSFT | 0.7 | 547.1535 | 382.85 |
+| 2026-10-15 | COMPRA | TQQQ | 6.17092 | 76.4877 | 472.15 |
+| 2026-10-16 | VENTA | META | 0.66 | 731.2898 | 482.49 |
+| 2026-10-16 | VENTA | MSFT | 0.6 | 534.6315 | 320.62 |
+| 2026-10-19 | COMPRA | TQQQ | 5.57431 | 71.7577 | 400.15 |
+| 2026-10-19 | COMPRA | TQQQ | 5.89468 | 67.8577 | 400.15 |
+| 2026-10-26 | COMPRA | TQQQ | 6.02087 | 66.4355 | 400.15 |
+| 2026-10-27 | COMPRA | GOOGL | 1.25403 | 318.97 | 400.15 |
+
+Total compras 3073.20 | Total ventas 1185.96
+
 ---
 
-## 7. Metricas acumuladas (jun 2025 - Sep 2026)
+## 7. Metricas acumuladas (jun 2025 - Oct 2026)
 
 | Concepto | Monto USD |
 |---|---:|
-| Aportes totales (Journal from HAPI) | 8141.37 |
+| Aportes totales (Journal from HAPI) | 8891.37 |
 | Retiros a Bakkt/Crypto (Journal to BAKKT) | 1074.73 |
 | Entradas desde Bakkt | 0.92 |
-| **Capital neto aportado a Bolsa** | **7067.56** |
-| Valor total de la cuenta al cierre (Sep 2026) | 8367.80 |
-| **Resultado acumulado (valor - capital neto)** | **1300.24** |
-| Rendimiento simple sobre capital neto | 18.40% |
-| Dividendos brutos / retencion / netos | 26.45 / 7.94 / 18.51 |
+| **Capital neto aportado a Bolsa** | **7817.56** |
+| Valor total de la cuenta al cierre (Oct 2026) | 8031.71 |
+| **Resultado acumulado (valor - capital neto)** | **214.15** |
+| Rendimiento simple sobre capital neto | 2.74% |
+| Dividendos brutos / retencion / netos | 27.37 / 8.22 / 19.15 |
 | Intereses de margen pagados | 2.00 |
 
 El resultado acumulado incluye ganancia realizada + no realizada + dividendos netos - intereses de margen. Es un rendimiento simple (no ponderado por tiempo); para un TWR/MWR usar los flujos fechados de la seccion 3 y los valores de cierre de la seccion 2.
@@ -618,5 +653,6 @@ El resultado acumulado incluye ganancia realizada + no realizada + dividendos ne
 | Jul 2026 | JULIO2026.pdf |
 | Ago 2026 | AGOSTO2026.pdf |
 | Sep 2026 | SEPTIEMBRE2026.pdf |
+| Oct 2026 | OCTUBRE2026.pdf |
 
-**Pendiente:** octubre 2026 (el estado se genera despues del cierre del mes). Al llegar, seguir el protocolo de la seccion 0 y anotar aqui el nombre del PDF.
+**Pendiente:** noviembre 2026 (el estado se genera despues del cierre del mes). Al llegar, seguir el protocolo de la seccion 0 y anotar aqui el nombre del PDF.
