@@ -6,6 +6,12 @@
 
 const { useState, useMemo, useEffect, useRef } = React;
 
+// Bloques del dashboard en orden: [id del ancla, etiqueta del atajo]
+const DASH_SECTIONS = [
+  ['resumen', 'Resumen'], ['cascada', 'Cascada'], ['origen', 'Origen'], ['dividendos', 'Dividendos'],
+  ['ventas', 'Ventas'], ['margen', 'Margen'], ['depositos', 'Depósitos'],
+];
+
 // --- ICONOS VECTORIALES INTEGRADOS (SVG) ---
 const svgProps = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.25, strokeLinecap: 'round', strokeLinejoin: 'round' };
 const Icons = {
@@ -742,6 +748,39 @@ function App() {
   const [dashYear, setDashYear] = useState(() => years[years.length - 1]);
   const dash = useMemo(() => computeYearDashboard(portfolioData, dashYear), [portfolioData, dashYear]);
   const margin = useMemo(() => computeMargin(portfolioData, dashYear), [portfolioData, dashYear]);
+  // Atajos del dashboard: resalta la sección visible y salta a ella sin perder la barra fija
+  const [dashSection, setDashSection] = useState(DASH_SECTIONS[0][0]);
+  useEffect(() => {
+    if (activeTab !== 'dashboard') return undefined;
+    let raf = 0;
+    const spy = () => {
+      raf = 0;
+      const line = 120;
+      let cur = DASH_SECTIONS[0][0];
+      DASH_SECTIONS.forEach(([id]) => {
+        const el = document.getElementById(`dash-${id}`);
+        if (el && el.getBoundingClientRect().top <= line) cur = id;
+      });
+      // Al fondo de la página la última sección puede no llegar a la línea
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) cur = DASH_SECTIONS[DASH_SECTIONS.length - 1][0];
+      setDashSection(cur);
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(spy); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    spy();
+    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); cancelAnimationFrame(raf); };
+  }, [activeTab, dashYear]);
+  const jumpTo = (e, id) => {
+    e.preventDefault();
+    const el = document.getElementById(`dash-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    setDashSection(id);
+    // Mantiene el chip activo visible en la barra cuando se desplaza horizontalmente (móvil)
+    const chip = e.currentTarget, bar = chip.parentElement;
+    bar.scrollTo({ left: chip.offsetLeft - (bar.clientWidth - chip.offsetWidth) / 2, behavior: 'smooth' });
+  };
   const divCls = k => (k === 'Otros' ? 's-other' : `s${['VOO', 'MSFT', 'META', 'QQQ', 'TQQQ'].indexOf(k) + 1}`);
   const endLabel = dash.lastMonth.endsWith('-12') ? 'Cierre' : `Corte ${lab(dash.lastMonth)}`;
 
@@ -1461,8 +1500,15 @@ function App() {
             </div>
           </div>
 
+          {/* ATAJOS: barra fija con acceso directo a cada bloque del dashboard */}
+          <nav className="jump-nav" aria-label="Secciones del dashboard">
+            {DASH_SECTIONS.map(([id, l]) => (
+              <a key={id} href={`#dash-${id}`} className={dashSection === id ? 'active' : ''} aria-current={dashSection === id ? 'true' : undefined} onClick={e => jumpTo(e, id)}>{l}</a>
+            ))}
+          </nav>
+
           {/* 1. CRECIMIENTO DEL PORTAFOLIO */}
-          <div className="kpi-grid">
+          <div className="kpi-grid dash-anchor" id="dash-resumen">
             <div className="card kpi hero reveal" style={{ '--i': 0 }}>
               <span className="kpi-label">{`Crecimiento en ${dashYear}`}</span>
               <div className="hero-line">
@@ -1495,7 +1541,7 @@ function App() {
             ))}
           </div>
 
-          <div className="card chart-card reveal">
+          <div className="card chart-card reveal dash-anchor" id="dash-cascada">
             <div className="card-head">
               <h3 className="card-title">{`De dónde salió el crecimiento · ${dashYear}`}</h3>
               <div className="chart-legend">
@@ -1519,7 +1565,7 @@ function App() {
             />
           </div>
 
-          <div className="section reveal">
+          <div className="section reveal dash-anchor" id="dash-origen">
             <div className="section-header">
               <h2 className="section-title">Origen del crecimiento <span className="section-sub">{`${f(grow.start)} → ${f(grow.end)}`}</span></h2>
             </div>
@@ -1560,7 +1606,7 @@ function App() {
           </div>
 
           {/* 2. DIVIDENDOS POR MES */}
-          <div className="section reveal">
+          <div className="section reveal dash-anchor" id="dash-dividendos">
             <div className="section-header">
               <h2 className="section-title">Dividendos por mes <span className="section-sub">{`${dash.dividends.rows.length} pagos · neto de retención`}</span></h2>
             </div>
@@ -1619,7 +1665,7 @@ function App() {
           </div>
 
           {/* 3. VENTAS REALIZADAS POR MES */}
-          <div className="section reveal">
+          <div className="section reveal dash-anchor" id="dash-ventas">
             <div className="section-header">
               <h2 className="section-title">Ventas por mes <span className="section-sub">{`${dash.sales.count} ventas · ${dash.sales.winners} con ganancia`}</span></h2>
             </div>
@@ -1688,7 +1734,7 @@ function App() {
           </div>
 
           {/* 3b. MARGEN: GANANCIA VS INTERESES */}
-          <div className="section reveal">
+          <div className="section reveal dash-anchor" id="dash-margen">
             <div className="section-header">
               <h2 className="section-title">Margen <span className="section-sub">{margin.used ? 'ganancia con dinero prestado vs intereses' : `sin uso de margen en ${dashYear}`}</span></h2>
             </div>
@@ -1756,7 +1802,7 @@ function App() {
           </div>
 
           {/* 4. DEPÓSITOS POR MES */}
-          <div className="section reveal">
+          <div className="section reveal dash-anchor" id="dash-depositos">
             <div className="section-header">
               <h2 className="section-title">Depósitos por mes <span className="section-sub">aportes desde HAPI</span></h2>
             </div>

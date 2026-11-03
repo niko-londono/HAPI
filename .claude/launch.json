@@ -4,7 +4,7 @@
     {
       "name": "hapi",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["C:\\Users\\Niko\\AppData\\Local\\Temp\\claude\\D--NIKO-PROYECTOS-WEB-APP-REPOS-HAPI\\0649185b-7114-4052-b3a2-db438d2796f2\\scratchpad\\serve.js", "D:\\NIKO\\PROYECTOS-WEB-APP\\REPOS\\HAPI"],
+      "runtimeArgs": ["C:\\Users\\Niko\\AppData\\Local\\Temp\\claude\\D--NIKO-PROYECTOS-WEB-APP-REPOS-HAPI\\1b44a064-2d57-4076-b135-90db9d1e9692\\scratchpad\\serve.js", "D:\\NIKO\\PROYECTOS-WEB-APP\\REPOS\\HAPI"],
       "port": 5173
     }
   ]

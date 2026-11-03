@@ -250,6 +250,14 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; whit
 }
 
 /* DASHBOARD */
+/* Atajos: barra fija arriba con un chip por bloque */
+.jump-nav { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; margin: -8px -8px 16px; padding: 10px 8px; background: color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+.jump-nav::-webkit-scrollbar { display: none; }
+.jump-nav a { flex: none; padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--text-muted); text-decoration: none; white-space: nowrap; transition: color var(--t), background-color var(--t); }
+.jump-nav a:hover { color: var(--text-main); background: var(--surface-2); }
+.jump-nav a.active { color: var(--text-inverse); background: var(--text-main); }
+.jump-nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.dash-anchor { scroll-margin-top: 72px; }
 .kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .kpi-row .kpi { padding: 16px 18px; }
 .section .chart-card { margin-bottom: 12px; }
