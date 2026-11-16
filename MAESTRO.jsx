@@ -619,6 +619,55 @@ function HorizonChart({ holdings, total, f }) {
   );
 }
 
+// Margen en uso al último cierre: cuánto se debe, qué parte del portafolio paga y en qué acciones está (Bolsa y Total)
+function MarginNow({ m, f, fd, base, baseLabel, asOf }) {
+  if (!m || m.debt < 0.005) {
+    return (
+      <div className="card"><p className="note" style={{ margin: 0 }}>Al cierre del {asOf} no hay deuda de margen: todas las acciones están pagadas con tu dinero.</p></div>
+    );
+  }
+  const basePct = base > 0 ? (m.debt / base) * 100 : 0;
+  return (
+    <>
+      <div className="kpi-row">
+        <div className="card kpi"><span className="kpi-label">Margen en uso</span><b className="kpi-val n">{f(m.debt)}</b><span className="kpi-meta">{`deuda al ${asOf}`}</span></div>
+        <div className="card kpi"><span className="kpi-label">{`% ${baseLabel}`}</span><b className="kpi-val">{`${basePct.toFixed(2)}%`}</b><span className="kpi-meta">{`apalancamiento ${m.leverage.toFixed(3)}×`}</span></div>
+        <div className="card kpi"><span className="kpi-label">Interés estimado</span><b className="kpi-val n">{`-${f(m.dailyInterest * 30)}`}</b><span className="kpi-meta">{`al mes · ${f(m.dailyInterest)} al día (${(m.rate * 100).toFixed(0)}% anual)`}</span></div>
+        <div className="card kpi"><span className="kpi-label">Acciones con margen</span><b className="kpi-val">{m.rows.length}</b><span className="kpi-meta">{m.rows.map(r => r.y === 'OTROS' ? 'otros' : r.y).join(' · ')}</span></div>
+      </div>
+      <div className="card table-card">
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr><th>Acción</th><th>Deuda asignada</th><th>% de la deuda</th><th>Valor de la posición</th><th>% de la posición con margen</th><th>Desde</th></tr>
+            </thead>
+            <tbody>
+              {m.rows.map(r => (
+                <tr key={r.y}>
+                  <td>{r.y === 'OTROS' ? r.name : <TickerCell y={r.y} name={r.name} size={22} />}</td>
+                  <td className="n">{f(r.amount)}</td>
+                  <td>{`${r.share.toFixed(1)}%`}</td>
+                  <td>{r.value > 0 ? f(r.value) : '—'}</td>
+                  <td>
+                    {r.value > 0 ? (
+                      <span className="weight-cell">
+                        {`${r.posPct.toFixed(1)}%`}
+                        <span className="weight-bar"><span className="weight-fill margin" style={{ width: `${Math.min(100, Math.max(2, r.posPct))}%` }}></span></span>
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td>{r.since ? fd(r.since) : '—'}</td>
+                </tr>
+              ))}
+              <tr className="row-total"><td>Total</td><td className="n">{f(m.debt)}</td><td>100%</td><td>{f(m.securities)}</td><td>{`${m.pct.toFixed(1)}%`}</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function App() {
   const engine = window.HapiEngine;
   if (!engine) {
@@ -748,6 +797,8 @@ function App() {
   const [dashYear, setDashYear] = useState(() => years[years.length - 1]);
   const dash = useMemo(() => computeYearDashboard(portfolioData, dashYear), [portfolioData, dashYear]);
   const margin = useMemo(() => computeMargin(portfolioData, dashYear), [portfolioData, dashYear]);
+  // Margen en uso hoy (último cierre), para Bolsa y Total
+  const marginNow = useMemo(() => computeMargin(portfolioData, years[years.length - 1]).now, [portfolioData, years]);
   // Atajos del dashboard: resalta la sección visible y salta a ella sin perder la barra fija
   const [dashSection, setDashSection] = useState(DASH_SECTIONS[0][0]);
   useEffect(() => {
@@ -840,7 +891,7 @@ function App() {
       .map(r => ({ key: r.y, name: r.name, account: 'Bolsa', v: r.v }))
       .concat([
         { key: 'BTC', name: 'Bitcoin', account: 'Crypto', v: crypto.mv },
-        { key: 'Efectivo', name: 'FDIC / margen', account: 'Bolsa', v: portfolioData.cashFdic }
+        { key: 'Efectivo', name: portfolioData.cashFdic < 0 ? 'Margen (deuda)' : 'FDIC / margen', account: 'Bolsa', v: portfolioData.cashFdic }
       ])
       .sort((a, b) => b.v - a.v)
       .map(h => ({ ...h, pct: (h.v / totalWealth) * 100 })); // distribución actual (hoy), no depende del periodo
@@ -1056,6 +1107,7 @@ function App() {
                       <th>Precio</th>
                       <th>Valor</th>
                       <th>% cartera</th>
+                      <th>Con margen</th>
                       <th>No realizada</th>
                       <th>Realizada</th>
                     </tr>
@@ -1078,12 +1130,13 @@ function App() {
                             </span>
                           ) : '—'}
                         </td>
+                        <td className={marginNow.byTicker[r.y] ? 'n' : 'neutral'}>{marginNow.byTicker[r.y] ? f(marginNow.byTicker[r.y]) : '—'}</td>
                         <td className={r.q > 0 ? cls(r.u) : 'neutral'}>{r.q > 0 ? `${sg(r.u)} (${pc(r.unrealizedPct)})` : '—'}</td>
                         <td className={r.r !== 0 ? cls(r.r) : 'neutral'}>{r.r !== 0 ? sg(r.r) : '—'}</td>
                       </tr>
                     ))}
                     {filteredPositions.length === 0 && (
-                      <tr><td colSpan={8} className="empty-row">No hay activos que coincidan con la búsqueda.</td></tr>
+                      <tr><td colSpan={9} className="empty-row">No hay activos que coincidan con la búsqueda.</td></tr>
                     )}
                     <tr className="row-total">
                       <td>{portfolioData.cashFdic < 0 ? 'Margen (deuda)' : 'Efectivo / FDIC'}</td>
@@ -1092,6 +1145,7 @@ function App() {
                       <td></td>
                       <td>{f(portfolioData.cashFdic)}</td>
                       <td>{portfolioData.cashPct.toFixed(1)}%</td>
+                      <td className={marginNow.debt > 0.004 ? 'n' : ''}>{marginNow.debt > 0.004 ? f(marginNow.debt) : ''}</td>
                       <td></td>
                       <td></td>
                     </tr>
@@ -1099,6 +1153,18 @@ function App() {
                 </table>
               </div>
             </div>
+          </div>
+
+          {/* MARGEN EN USO */}
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Margen en uso <span className="section-sub">dinero prestado al cierre del 31 oct 2026 y en qué acciones está</span></h2>
+            </div>
+            <MarginNow m={marginNow} f={f} fd={fd} base={marginNow.securities} baseLabel="de las acciones" asOf="31 oct 2026" />
+            <p className="note">
+              La deuda total es la del estado de cuenta. El reparto por acción es una estimación: cada compra que subió la deuda abre un tramo,
+              los aportes y dividendos pagan primero los tramos más viejos y una venta paga primero los de su misma acción. No depende de la barra de periodos.
+            </p>
           </div>
 
           {/* TABLA DE RENDIMIENTO MENSUAL */}
@@ -1440,6 +1506,7 @@ function App() {
                       <th>Cuenta</th>
                       <th>Valor</th>
                       <th>% patrimonio</th>
+                      <th>Con margen</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1456,6 +1523,7 @@ function App() {
                             <span className="weight-bar"><span className={`weight-fill ${h.account === 'Crypto' ? 'crypto' : ''}`} style={{ width: `${Math.min(100, h.pct)}%` }}></span></span>
                           </span>
                         </td>
+                        <td className={marginNow.byTicker[h.key] ? 'n' : 'neutral'}>{marginNow.byTicker[h.key] ? f(marginNow.byTicker[h.key]) : '—'}</td>
                       </tr>
                     ))}
                     <tr className="row-total">
@@ -1463,6 +1531,7 @@ function App() {
                       <td></td>
                       <td>{f(totalWealth)}</td>
                       <td>100%</td>
+                      <td className={marginNow.debt > 0.004 ? 'n' : ''}>{marginNow.debt > 0.004 ? f(marginNow.debt) : ''}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1472,6 +1541,18 @@ function App() {
               Bolsa según los estados de cuenta de Apex; crypto tal como aparece en la pestaña Crypto (lotes de BTC a su costo y al precio vigente).
               La barra de periodos es la misma de la pestaña Bolsa (cambiarla aquí también la cambia allá). Esta tabla siempre muestra la distribución de hoy.
               Las fechas no coinciden: la bolsa es el cierre del 31 oct 2026 y crypto {crypto.live ? 'usa el precio actual' : `el corte del ${fd(crypto.cutDate)}`}.
+            </p>
+          </div>
+
+          {/* MARGEN EN USO */}
+          <div className="section reveal">
+            <div className="section-header">
+              <h2 className="section-title">Margen en uso <span className="section-sub">dinero prestado de la bolsa · % del patrimonio de hoy</span></h2>
+            </div>
+            <MarginNow m={marginNow} f={f} fd={fd} base={totalWealth} baseLabel="del patrimonio" asOf="31 oct 2026" />
+            <p className="note">
+              El margen solo existe en la bolsa (Apex); la crypto no tiene deuda. Tu patrimonio ya tiene la deuda restada (fila "Margen (deuda)" de la tabla de arriba).
+              El reparto por acción es la misma estimación de la pestaña Bolsa.
             </p>
           </div>
 

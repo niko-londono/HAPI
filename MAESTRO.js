@@ -366,25 +366,39 @@
     let cash = MARGIN.startCash;
     const trades = [];
     const debtByDay = []; // [fecha, deuda al cierre del día]
+    // Deuda viva por compra (para saber en qué acciones está el margen de hoy): cada compra con margen abre un tramo;
+    // el dinero que entra paga primero los tramos más viejos, y una venta paga primero los tramos de su misma acción.
+    const debtLots = [];
+    const repay = (amount, y) => {
+      let left = amount;
+      const order = y ? debtLots.filter(l => l.y === y).concat(debtLots.filter(l => l.y !== y)) : debtLots.slice();
+      order.forEach(l => { const p = Math.min(l.a, left); l.a -= p; left -= p; });
+      for (let i = debtLots.length - 1; i >= 0; i--) if (debtLots[i].a < 1e-9) debtLots.splice(i, 1);
+    };
     ev.forEach(e => {
       const isOp = e.o;
+      const before = Math.max(0, -cash);
       if (isOp) {
         const o = e.o;
         const t = st[o.y] || (st[o.y] = { q: 0, mq: 0 });
         if (e.k === 'buy') {
-          const before = Math.max(0, -cash);
           if (o.d >= MARGIN.startDate) cash -= o.a;
           const m = o.d >= MARGIN.startDate ? Math.min(o.a, Math.max(0, Math.max(0, -cash) - before)) : 0;
           if (m > 0.004) trades.push({ date: dt(o.d), m: o.m, y: o.y, name: N[o.y] || o.y, q: o.q, amount: o.a, margin: m });
+          if (m > 0) debtLots.push({ y: o.y, a: m, d: o.d });
           t.q += o.q; t.mq += o.q * (m / o.a);
         } else {
           const frac = t.q > 0 ? t.mq / t.q : 0;
           if (o.d >= MARGIN.startDate) cash += o.a;
           o.mg = o.g * frac; // ganancia de la parte pagada con margen
           t.mq -= o.q * frac; t.q -= o.q;
+          if (o.d >= MARGIN.startDate) repay(before - Math.max(0, -cash), o.y);
         }
       } else if (e.d >= MARGIN.startDate) {
         cash += e.a;
+        const after = Math.max(0, -cash);
+        if (after > before) debtLots.push({ y: null, a: after - before, d: e.d }); // retiro o cargo pagado con margen
+        else if (after < before) repay(before - after);
       }
       if (e.d >= MARGIN.startDate) {
         const debt = Math.max(0, -cash);
@@ -431,7 +445,37 @@
       interestPending: isLast ? accruedUncharged : 0,
       net: realized + unrealized - interestPaid - (isLast ? accruedUncharged : 0),
       peakDebt: peak, debtDays, debtEnd: isLast ? Math.max(0, -(data.cashFdic)) : 0, isLast,
-      marginBought: buys.reduce((t, x) => t + x.margin, 0), accruedAll: accrued
+      marginBought: buys.reduce((t, x) => t + x.margin, 0), accruedAll: accrued,
+      now: marginNow(data, debtLots)
+    };
+  }
+
+  // Margen en uso al último cierre: deuda total, a qué acciones corresponde y qué parte de cada posición financia.
+  // La deuda del estado de cuenta manda; los tramos reconstruidos solo la reparten (se escalan para sumar exacto).
+  function marginNow(data, debtLots) {
+    const debt = Math.max(0, -data.cashFdic);
+    const securities = data.positionsRows.reduce((t, r) => t + (r.q > 0 ? r.v : 0), 0);
+    const by = {};
+    debtLots.forEach(l => { const k = l.y || 'OTROS'; by[k] = (by[k] || 0) + l.a; });
+    const sum = Object.values(by).reduce((t, v) => t + v, 0);
+    const scale = sum > 0 ? debt / sum : 0;
+    const rows = Object.keys(by).map(k => {
+      const pos = data.positionsRows.find(r => r.y === k && r.q > 0);
+      const amount = by[k] * scale;
+      const since = debtLots.filter(l => (l.y || 'OTROS') === k).map(l => l.d).sort()[0];
+      return {
+        y: k, name: k === 'OTROS' ? 'Retiros / cargos' : (N[k] || k), amount,
+        value: pos ? pos.v : 0, posPct: pos && pos.v > 0 ? (amount / pos.v) * 100 : 0,
+        share: debt > 0 ? (amount / debt) * 100 : 0, since: since ? dt(since) : null
+      };
+    }).filter(r => r.amount > 0.004).sort((a, b) => b.amount - a.amount);
+    const byTicker = {};
+    rows.forEach(r => { byTicker[r.y] = r.amount; });
+    return {
+      debt, securities, equity: securities + data.cashFdic, rows, byTicker,
+      pct: securities > 0 ? (debt / securities) * 100 : 0, // parte de las acciones pagada con deuda
+      leverage: securities + data.cashFdic > 0 ? securities / (securities + data.cashFdic) : 1,
+      dailyInterest: debt * MARGIN.rate / 360, rate: MARGIN.rate
     };
   }
 

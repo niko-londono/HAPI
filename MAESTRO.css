@@ -217,6 +217,7 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; whit
 .split-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .split-dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 .weight-fill.crypto { background: var(--cum); }
+.weight-fill.margin { background: var(--loss); }
 
 /* TOTAL: largo vs corto plazo */
 .horizon { display: grid; grid-template-columns: auto 1fr; gap: 32px; align-items: start; padding: 24px; }
