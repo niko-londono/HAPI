@@ -534,20 +534,28 @@ function Waterfall({ steps, f, sg }) {
 
 // --- COMPONENTE PRINCIPAL: APP ---
 // --- HORIZONTE: LARGO PLAZO (ETF, incluido GLD) VS CORTO PLAZO (todo lo demás) ---
-const LONG_TERM = new Set(['QQQ', 'TQQQ', 'GLD', 'VOO', 'VT', 'VGT', 'SMH', 'SCHD', 'SPY']);
+const LONG_TERM = new Set(['QQQ', 'GLD', 'VOO', 'VT', 'VGT', 'SMH', 'SCHD', 'SPY']);
+const TRADING = new Set(['TQQQ']); // ETF apalancado para operar, no para mantener
+const HORIZON_GROUPS = [['largo', 'Largo plazo'], ['corto', 'Corto plazo'], ['trading', 'Trading']];
 
 function HorizonChart({ holdings, total, f }) {
-  // Ajustes propios sobre el reparto por defecto: { ticker: 'largo' | 'corto' }, guardados en este navegador
+  // Ajustes propios sobre el reparto por defecto: { ticker: 'largo' | 'corto' | 'trading' }, guardados en este navegador.
+  // v2: al crear el grupo Trading se descarta el ajuste viejo de TQQQ para que empiece en Trading.
   const [overrides, setOverrides] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('hapi_horizon') || '{}') || {}; } catch (e) { return {}; }
+    try {
+      const v2 = localStorage.getItem('hapi_horizon_v2');
+      if (v2) return JSON.parse(v2) || {};
+      const old = JSON.parse(localStorage.getItem('hapi_horizon') || '{}') || {};
+      TRADING.forEach(k => { delete old[k]; });
+      return old;
+    } catch (e) { return {}; }
   });
   useEffect(() => {
-    try { localStorage.setItem('hapi_horizon', JSON.stringify(overrides)); } catch (e) {}
+    try { localStorage.setItem('hapi_horizon_v2', JSON.stringify(overrides)); } catch (e) {}
   }, [overrides]);
-  const defaultOf = k => (LONG_TERM.has(k) ? 'largo' : 'corto');
+  const defaultOf = k => (TRADING.has(k) ? 'trading' : LONG_TERM.has(k) ? 'largo' : 'corto');
   const groupOf = k => overrides[k] || defaultOf(k);
-  const move = k => {
-    const next = groupOf(k) === 'largo' ? 'corto' : 'largo';
+  const move = (k, next) => {
     setOverrides(o => {
       const n = { ...o };
       if (next === defaultOf(k)) delete n[k]; else n[k] = next;
@@ -555,10 +563,10 @@ function HorizonChart({ holdings, total, f }) {
     });
   };
   const custom = holdings.some(h => overrides[h.key]);
-  const groups = [
-    { key: 'largo', label: 'Largo plazo', sub: custom ? 'a tu elección' : 'ETF', items: holdings.filter(h => groupOf(h.key) === 'largo') },
-    { key: 'corto', label: 'Corto plazo', sub: custom ? 'a tu elección' : 'acciones, crypto y efectivo', items: holdings.filter(h => groupOf(h.key) === 'corto') }
-  ].map(g => {
+  const subs = { largo: 'ETF', corto: 'acciones, crypto y efectivo', trading: 'ETF apalancado' };
+  const groups = HORIZON_GROUPS.map(([key, label]) => ({
+    key, label, sub: custom ? 'a tu elección' : subs[key], items: holdings.filter(h => groupOf(h.key) === key)
+  })).map(g => {
     const v = g.items.reduce((t, h) => t + h.v, 0);
     return { ...g, v, pct: total > 0 ? (v / total) * 100 : 0 };
   });
@@ -600,19 +608,18 @@ function HorizonChart({ holdings, total, f }) {
                   <TickerCell y={h.key} size={22} />
                   <span>{f(h.v)}</span>
                   <span className="horizon-pct">{h.pct.toFixed(1)}%</span>
-                  <button className="horizon-move" onClick={() => move(h.key)}
-                    title={`Pasar ${h.key} a ${g.key === 'largo' ? 'corto' : 'largo'} plazo`}
-                    aria-label={`Pasar ${h.key} a ${g.key === 'largo' ? 'corto' : 'largo'} plazo`}>
-                    {g.key === 'largo' ? '→' : '←'}
-                  </button>
+                  <select className="horizon-move" value={g.key} onChange={e => move(h.key, e.target.value)}
+                    title={`Grupo de ${h.key}`} aria-label={`Grupo de ${h.key}`}>
+                    {HORIZON_GROUPS.map(([k, l]) => <option key={k} value={k}>{l.replace(' plazo', '')}</option>)}
+                  </select>
                 </li>
               ))}
-              {!g.items.length && <li className="horizon-empty">Sin activos · usa las flechas para moverlos aquí</li>}
+              {!g.items.length && <li className="horizon-empty">Sin activos · cambia el grupo de un activo para traerlo aquí</li>}
             </ul>
           </div>
         ))}
         {custom && (
-          <button className="btn ghost horizon-reset" onClick={() => setOverrides({})}>Restablecer (ETF = largo plazo)</button>
+          <button className="btn ghost horizon-reset" onClick={() => setOverrides({})}>Restablecer (ETF = largo plazo, TQQQ = trading)</button>
         )}
       </div>
     </div>
@@ -1559,10 +1566,10 @@ function App() {
           {/* HORIZONTE: LARGO VS CORTO PLAZO */}
           <div className="section reveal">
             <div className="section-header">
-              <h2 className="section-title">Largo vs corto plazo <span className="section-sub">ETF por defecto, ajustable · % del patrimonio de hoy</span></h2>
+              <h2 className="section-title">Largo plazo, corto plazo y trading <span className="section-sub">ETF por defecto, ajustable · % del patrimonio de hoy</span></h2>
             </div>
             <HorizonChart holdings={total.holdings} total={totalWealth} f={f} />
-            <p className="note">Por defecto, largo plazo agrupa todos los ETF (incluido GLD, el oro); corto plazo, las acciones individuales, el BTC y el efectivo de la cuenta. Con las flechas pasas cualquier activo al otro grupo; tu elección se guarda en este navegador.</p>
+            <p className="note">Por defecto, largo plazo agrupa los ETF (incluido GLD, el oro); trading, el TQQQ (ETF apalancado 3×); corto plazo, las acciones individuales, el BTC y el efectivo de la cuenta. Con el selector de cada activo lo pasas a otro grupo; tu elección se guarda en este navegador.</p>
           </div>
         </section>
       )}
