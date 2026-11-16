@@ -54,6 +54,7 @@
     startDate: '260701',
     startCash: 202.72,
     rate: 0.08,
+    maxPct: 0.40, // límite recomendado: la deuda de margen no debe pasar del 40% del valor total de la cuenta
     flows: '260716,0.01;260731,420;260811,-404;260817,394;260901,325;261028,750',
     charges: [['2026-08-15', 2.00]]
   };
@@ -475,7 +476,12 @@
       debt, securities, equity: securities + data.cashFdic, rows, byTicker,
       pct: securities > 0 ? (debt / securities) * 100 : 0, // parte de las acciones pagada con deuda
       leverage: securities + data.cashFdic > 0 ? securities / (securities + data.cashFdic) : 1,
-      dailyInterest: debt * MARGIN.rate / 360, rate: MARGIN.rate
+      dailyInterest: debt * MARGIN.rate / 360, rate: MARGIN.rate,
+      // Límite recomendado sobre el valor total de la cuenta (Total Equity Holdings, ya con la deuda restada)
+      limitPct: MARGIN.maxPct * 100,
+      accountPct: data.totalClosingVal > 0 ? (debt / data.totalClosingVal) * 100 : 0,
+      limitAmount: data.totalClosingVal * MARGIN.maxPct,
+      room: data.totalClosingVal * MARGIN.maxPct - debt
     };
   }
 

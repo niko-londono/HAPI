@@ -653,11 +653,39 @@ function HorizonChart({ holdings, total, f }) {
   );
 }
 
+// Medidor del margen contra el límite recomendado (% del valor total de la cuenta)
+function MarginLimit({ m, f, asOf }) {
+  const use = m.limitPct > 0 ? (m.accountPct / m.limitPct) * 100 : 0; // % del límite que ya se usa
+  const level = use >= 100 ? 'over' : use >= 75 ? 'near' : 'ok';
+  const label = { ok: 'dentro del límite', near: 'cerca del límite', over: 'sobre el límite' }[level];
+  return (
+    <div className="card margin-limit">
+      <div className="margin-limit-head">
+        <span className="kpi-label">{`Límite recomendado: ${m.limitPct.toFixed(0)}% de la cuenta`}</span>
+        <span className={`horizon-status ${level === 'ok' ? 'ok' : level === 'near' ? 'over' : 'danger'}`}>{label}</span>
+      </div>
+      <div className="margin-limit-bar" role="img" aria-label={`Usas ${m.accountPct.toFixed(2)}% de la cuenta en margen; límite ${m.limitPct.toFixed(0)}%`}>
+        <span className={`margin-limit-fill ${level}`} style={{ width: `${Math.min(100, Math.max(use > 0 ? 1 : 0, use))}%` }}></span>
+      </div>
+      <div className="margin-limit-scale"><span>0%</span><span>{`${(m.limitPct / 2).toFixed(0)}%`}</span><span>{`${m.limitPct.toFixed(0)}% límite`}</span></div>
+      <div className="margin-limit-stats">
+        <div><span>Usado</span><b>{`${m.accountPct.toFixed(2)}%`}</b><small>{f(m.debt)}</small></div>
+        <div><span>Máximo</span><b>{`${m.limitPct.toFixed(0)}%`}</b><small>{f(m.limitAmount)}</small></div>
+        <div><span>{m.room >= 0 ? 'Disponible' : 'Exceso'}</span><b className={m.room >= 0 ? '' : 'n'}>{f(Math.abs(m.room))}</b><small>{`${use.toFixed(1)}% del límite usado`}</small></div>
+      </div>
+      <p className="footnote">{`Sobre el valor total de la cuenta al ${asOf} (${f(m.limitAmount / (m.limitPct / 100))}, ya con la deuda restada). Es una regla propia, no la de Apex: el bróker puede pedir más garantía antes.`}</p>
+    </div>
+  );
+}
+
 // Margen en uso al último cierre: cuánto se debe, qué parte del portafolio paga y en qué acciones está (Bolsa y Total)
 function MarginNow({ m, f, fd, base, baseLabel, asOf }) {
   if (!m || m.debt < 0.005) {
     return (
-      <div className="card"><p className="note" style={{ margin: 0 }}>Al cierre del {asOf} no hay deuda de margen: todas las acciones están pagadas con tu dinero.</p></div>
+      <>
+        <div className="card"><p className="note" style={{ margin: 0 }}>Al cierre del {asOf} no hay deuda de margen: todas las acciones están pagadas con tu dinero.</p></div>
+        {m && <MarginLimit m={m} f={f} asOf={asOf} />}
+      </>
     );
   }
   const basePct = base > 0 ? (m.debt / base) * 100 : 0;
@@ -669,6 +697,7 @@ function MarginNow({ m, f, fd, base, baseLabel, asOf }) {
         <div className="card kpi"><span className="kpi-label">Interés estimado</span><b className="kpi-val n">{`-${f(m.dailyInterest * 30)}`}</b><span className="kpi-meta">{`al mes · ${f(m.dailyInterest)} al día (${(m.rate * 100).toFixed(0)}% anual)`}</span></div>
         <div className="card kpi"><span className="kpi-label">Acciones con margen</span><b className="kpi-val">{m.rows.length}</b><span className="kpi-meta">{m.rows.map(r => r.y === 'OTROS' ? 'otros' : r.y).join(' · ')}</span></div>
       </div>
+      <MarginLimit m={m} f={f} asOf={asOf} />
       <div className="card table-card">
         <div className="table-scroll">
           <table className="data-table">
@@ -1863,6 +1892,7 @@ function App() {
                   <div className="card kpi"><span className="kpi-label">Resultado neto del margen</span><b className={`kpi-val ${cls(margin.net)}`}>{sg(margin.net)}</b><span className="kpi-meta">ganancia − intereses</span></div>
                   <div className="card kpi"><span className="kpi-label">{margin.debtEnd > 0.004 ? 'Deuda al corte' : 'Pico de deuda'}</span><b className="kpi-val">{f(margin.debtEnd > 0.004 ? margin.debtEnd : margin.peakDebt)}</b><span className="kpi-meta">{`pico ${f(margin.peakDebt)} · ${margin.debtDays} días con deuda`}</span></div>
                 </div>
+                {margin.isLast && <MarginLimit m={marginNow} f={f} asOf="31 oct 2026" />}
                 <div className="card table-card">
                   <div className="table-scroll">
                     <table className="data-table">
