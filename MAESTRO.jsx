@@ -537,6 +537,7 @@ function Waterfall({ steps, f, sg }) {
 const LONG_TERM = new Set(['QQQ', 'GLD', 'VOO', 'VT', 'VGT', 'SMH', 'SCHD', 'SPY']);
 const TRADING = new Set(['TQQQ']); // ETF apalancado para operar, no para mantener
 const HORIZON_GROUPS = [['largo', 'Largo plazo'], ['corto', 'Corto plazo'], ['trading', 'Trading']];
+const HORIZON_TARGET = { largo: 35, corto: 50, trading: 15 }; // % ideal del patrimonio (corto = el resto)
 
 function HorizonChart({ holdings, total, f }) {
   // Ajustes propios sobre el reparto por defecto: { ticker: 'largo' | 'corto' | 'trading' }, guardados en este navegador.
@@ -568,17 +569,34 @@ function HorizonChart({ holdings, total, f }) {
     key, label, sub: custom ? 'a tu elección' : subs[key], items: holdings.filter(h => groupOf(h.key) === key)
   })).map(g => {
     const v = g.items.reduce((t, h) => t + h.v, 0);
-    return { ...g, v, pct: total > 0 ? (v / total) * 100 : 0 };
+    const pct = total > 0 ? (v / total) * 100 : 0;
+    const target = HORIZON_TARGET[g.key];
+    // gap > 0: faltan dólares para llegar al ideal; < 0: sobran
+    return { ...g, v, pct, target, diff: pct - target, gap: (target / 100) * total - v };
   });
   // Dona con stroke-dasharray: un círculo por grupo, separado por un hueco de 1.5°
-  const size = 180, sw = 22, r = (size - sw) / 2, C = 2 * Math.PI * r, gap = groups.every(g => g.v > 0) ? C * (1.5 / 360) : 0;
-  let offset = 0;
+  // Anillo grueso = reparto real; anillo fino exterior = reparto ideal
+  const size = 200, sw = 22, r = 76, C = 2 * Math.PI * r, gap = groups.every(g => g.v > 0) ? C * (1.5 / 360) : 0;
+  const tr = r + sw / 2 + 8, tw = 5, TC = 2 * Math.PI * tr, tgap = TC * (1.5 / 360);
+  let offset = 0, toffset = 0;
+  const status = g => Math.abs(g.diff) < 2 ? 'en el ideal' : g.gap > 0 ? `faltan ${f(g.gap)}` : `sobran ${f(-g.gap)}`;
   return (
     <div className="card chart-card horizon">
       <div className="horizon-donut">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img"
           aria-label={groups.map(g => `${g.label} ${g.pct.toFixed(1)}%`).join(', ')}>
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--gray-bg)" strokeWidth={sw} />
+          {groups.map(g => {
+            const len = (g.target / 100) * TC;
+            const seg = (
+              <circle key={`t-${g.key}`} className={`horizon-seg ideal ${g.key}`} cx={size / 2} cy={size / 2} r={tr} fill="none" strokeWidth={tw}
+                strokeDasharray={`${Math.max(0, len - tgap)} ${TC}`} strokeDashoffset={-toffset} transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+                <title>{`${g.label} ideal: ${g.target}%`}</title>
+              </circle>
+            );
+            toffset += len;
+            return seg;
+          })}
           {groups.map(g => {
             const len = (g.pct / 100) * C;
             const seg = (
@@ -590,9 +608,11 @@ function HorizonChart({ holdings, total, f }) {
             offset += len;
             return seg;
           })}
-          <text className="horizon-center-val" x="50%" y="47%" textAnchor="middle">{`${groups[0].pct.toFixed(1)}%`}</text>
-          <text className="horizon-center-lab" x="50%" y="60%" textAnchor="middle">largo plazo</text>
+          <text className="horizon-center-val" x="50%" y="46%" textAnchor="middle">{`${groups[0].pct.toFixed(1)}%`}</text>
+          <text className="horizon-center-lab" x="50%" y="57%" textAnchor="middle">largo plazo</text>
+          <text className="horizon-center-lab" x="50%" y="65%" textAnchor="middle">{`ideal ${groups[0].target}%`}</text>
         </svg>
+        <div className="horizon-ring-legend"><span className="ring real"></span>real<span className="ring ideal"></span>ideal</div>
       </div>
       <div className="horizon-groups">
         {groups.map(g => (
@@ -601,7 +621,14 @@ function HorizonChart({ holdings, total, f }) {
               <span className="legend-item"><span className={`legend-chip horizon-chip ${g.key}`}></span><b>{g.label}</b><span className="ticker-name">{g.sub}</span></span>
               <span className="horizon-group-val"><b>{f(g.v)}</b><span>{g.pct.toFixed(1)}%</span></span>
             </div>
-            <div className="split-bar"><span className={`split-seg horizon-chip ${g.key}`} style={{ width: `${g.pct}%` }}></span></div>
+            <div className="split-bar horizon-bar">
+              <span className={`split-seg horizon-chip ${g.key}`} style={{ width: `${Math.max(0, Math.min(100, g.pct))}%` }}></span>
+              <span className="horizon-target" style={{ left: `${g.target}%` }} title={`Ideal ${g.target}%`}></span>
+            </div>
+            <div className="horizon-ideal">
+              <span>{`ideal ${g.target}% · ${g.diff >= 0 ? '+' : '−'}${Math.abs(g.diff).toFixed(1)} pts`}</span>
+              <span className={`horizon-status ${Math.abs(g.diff) < 2 ? 'ok' : g.gap > 0 ? 'under' : 'over'}`}>{status(g)}</span>
+            </div>
             <ul className="horizon-list">
               {g.items.map(h => (
                 <li key={h.key}>
@@ -1569,7 +1596,7 @@ function App() {
               <h2 className="section-title">Largo plazo, corto plazo y trading <span className="section-sub">ETF por defecto, ajustable · % del patrimonio de hoy</span></h2>
             </div>
             <HorizonChart holdings={total.holdings} total={totalWealth} f={f} />
-            <p className="note">Por defecto, largo plazo agrupa los ETF (incluido GLD, el oro); trading, el TQQQ (ETF apalancado 3×); corto plazo, las acciones individuales, el BTC y el efectivo de la cuenta. Con el selector de cada activo lo pasas a otro grupo; tu elección se guarda en este navegador.</p>
+            <p className="note">Ideal: 35% largo plazo, 15% trading y el resto (50%) corto plazo; la raya de cada barra y el anillo fino marcan el ideal, y "faltan/sobran" es cuánto mover para llegar a él con el patrimonio de hoy. Por defecto, largo plazo agrupa los ETF (incluido GLD, el oro); trading, el TQQQ (ETF apalancado 3×); corto plazo, las acciones individuales, el BTC y el efectivo de la cuenta. Con el selector de cada activo lo pasas a otro grupo; tu elección se guarda en este navegador.</p>
           </div>
         </section>
       )}

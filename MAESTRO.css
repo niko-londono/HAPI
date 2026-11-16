@@ -233,7 +233,20 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; whit
 .horizon-group-head b { font-weight: 600; }
 .horizon-group-val { display: inline-flex; gap: 8px; align-items: baseline; }
 .horizon-group-val span { font: 12px var(--font-mono); color: var(--text-muted); }
-.horizon .split-bar { background: var(--gray-bg); border-radius: 3px; margin-bottom: 12px; }
+.horizon .split-bar { background: var(--gray-bg); border-radius: 3px; margin-bottom: 6px; }
+.horizon-bar { position: relative; }
+.horizon-target { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text-main); border-radius: 1px; }
+.horizon-ideal { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font: 11.5px var(--font-mono); color: var(--text-muted); }
+.horizon-status { padding: 1px 7px; border-radius: 999px; background: var(--gray-bg); }
+.horizon-status.under { background: var(--blue-bg); color: var(--accent); }
+.horizon-status.over { background: var(--amber-bg); color: var(--amber); }
+.horizon-status.ok { background: var(--gain-bg); color: var(--gain); }
+.horizon-seg.ideal { opacity: .55; }
+.horizon-donut { display: grid; justify-items: center; gap: 6px; }
+.horizon-ring-legend { display: flex; align-items: center; gap: 6px; font: 11px var(--font-mono); color: var(--text-muted); }
+.horizon-ring-legend .ring { width: 14px; border-radius: 2px; background: var(--text-muted); }
+.horizon-ring-legend .ring.real { height: 6px; margin-left: 0; }
+.horizon-ring-legend .ring.ideal { height: 3px; opacity: .55; margin-left: 8px; }
 .horizon-list { list-style: none; display: grid; gap: 6px; }
 .horizon-list li { display: grid; grid-template-columns: 1fr auto 52px auto; gap: 10px; align-items: center; font-size: 13px; color: var(--text-body); }
 .horizon-pct { font: 12px var(--font-mono); color: var(--text-muted); text-align: right; }
