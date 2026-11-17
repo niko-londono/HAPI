@@ -277,7 +277,7 @@ function BenchmarkChart({ bench, lab, pc }) {
   const W = Math.max(300, width || 900);
   const compact = W < 560;
   const L = compact ? 44 : 54;
-  const RP = compact ? 14 : 70;
+  const RP = compact ? 54 : 70; // margen derecho para el % final de cada línea
   const step = (W - L - RP) / Math.max(1, n - 1);
   const TOP = 18;
   const hP = compact ? 240 : 320;
@@ -293,7 +293,13 @@ function BenchmarkChart({ bench, lab, pc }) {
   const x = i => L + step * i;
   const pts = arr => arr.map((v, i) => `${x(i)},${y(v)}`).join(' ');
   const areaPath = `M${x(0)},${y(0)} ${port.map((v, i) => `L${x(i)},${y(v)}`).join(' ')} L${x(n - 1)},${y(0)} Z`;
-  const labelEvery = Math.max(1, Math.ceil(52 / step));
+  // Meses del eje X: de derecha a izquierda, se omite el que choque con el ya dibujado (ancho estimado ~42px)
+  const LBW = 42;
+  const xLabels = [];
+  for (let i = n - 1, minRight = Infinity; i >= 0; i--) {
+    const left = i === 0 ? x(0) : x(i) - LBW / 2;
+    if (left + LBW + 6 <= minRight) { xLabels.push(i); minRight = left; }
+  }
   const pctAxis = v => `${v > 0 ? '+' : ''}${v}%`;
 
   // Etiquetas finales sin solaparse: se ordenan por altura y se separan al menos 14px
@@ -341,12 +347,12 @@ function BenchmarkChart({ bench, lab, pc }) {
           {spx.map((v, i) => <circle key={`s${i}`} className="bench-dot-spx" cx={x(i)} cy={y(v)} r={t === i ? 4.5 : 2.5} />)}
           {port.map((v, i) => <circle key={`p${i}`} className="bench-dot-port" cx={x(i)} cy={y(v)} r={t === i ? 5 : 3.5} />)}
 
-          {!compact && endLabels.map(l => (
-            <text key={l.k} className={`bench-end-label ${l.k}`} x={x(n - 1) + 10} y={l.y + 4}>{pc(l.v)}</text>
+          {endLabels.map(l => (
+            <text key={l.k} className={`bench-end-label ${l.k}${compact ? ' compact' : ''}`} x={x(n - 1) + (compact ? 6 : 10)} y={l.y + 4}>{pc(l.v)}</text>
           ))}
 
-          {months.map((m, i) => (n - 1 - i) % labelEvery === 0 && (
-            <text key={`lb${i}`} className="chart-xlabel" x={x(i)} y={H - 8} textAnchor={i === 0 ? 'start' : compact && i === n - 1 ? 'end' : 'middle'}>{lab(m)}</text>
+          {xLabels.map(i => (
+            <text key={`lb${i}`} className="chart-xlabel" x={x(i)} y={H - 8} textAnchor={i === 0 ? 'start' : 'middle'}>{lab(months[i])}</text>
           ))}
 
           {months.map((m, i) => (

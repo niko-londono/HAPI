@@ -144,6 +144,7 @@ button, input { font-family: inherit; }
 .bench-dot-port { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 .bench-dot-spx { fill: var(--text-muted); stroke: var(--surface); stroke-width: 1.5; }
 .bench-end-label { font-size: 12px; font-weight: 600; }
+.bench-end-label.compact { font-size: 10.5px; }
 .bench-end-label.port { fill: var(--accent); } .bench-end-label.spx { fill: var(--text-muted); }
 /* Certificado a tasa fija: línea ámbar punteada fina (referencia sin riesgo) */
 .legend-chip.bench-cert { width: 14px; height: 0; border-top: 2px dotted var(--amber); border-radius: 0; }
