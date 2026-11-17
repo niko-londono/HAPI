@@ -286,8 +286,9 @@ function BenchmarkChart({ bench, lab, pc }) {
 
   const port = [0, ...rows.map(r => r.cumPort)];
   const spx = [0, ...rows.map(r => r.cumSpx)];
+  const cert = [0, ...rows.map(r => r.cumCert)];
   const months = [bench.start, ...rows.map(r => r.m)];
-  const tk = niceTicks(Math.min(0, ...port, ...spx), Math.max(0, ...port, ...spx), compact ? 4 : 5);
+  const tk = niceTicks(Math.min(0, ...port, ...spx, ...cert), Math.max(0, ...port, ...spx, ...cert), compact ? 4 : 5);
   const y = v => TOP + hP * (1 - (v - tk.min) / (tk.max - tk.min));
   const x = i => L + step * i;
   const pts = arr => arr.map((v, i) => `${x(i)},${y(v)}`).join(' ');
@@ -295,13 +296,15 @@ function BenchmarkChart({ bench, lab, pc }) {
   const labelEvery = Math.max(1, Math.ceil(52 / step));
   const pctAxis = v => `${v > 0 ? '+' : ''}${v}%`;
 
-  // Etiquetas finales sin solaparse
-  let yP = y(port[n - 1]);
-  let yS = y(spx[n - 1]);
-  if (Math.abs(yP - yS) < 14) {
-    const mid = (yP + yS) / 2;
-    if (yP <= yS) { yP = mid - 7; yS = mid + 7; } else { yP = mid + 7; yS = mid - 7; }
+  // Etiquetas finales sin solaparse: se ordenan por altura y se separan al menos 14px
+  const endLabels = [['port', port[n - 1]], ['spx', spx[n - 1]], ['cert', cert[n - 1]]]
+    .map(([k, v]) => ({ k, v, y: y(v) }))
+    .sort((a, b) => a.y - b.y);
+  for (let i = 1; i < endLabels.length; i++) {
+    if (endLabels[i].y - endLabels[i - 1].y < 14) endLabels[i].y = endLabels[i - 1].y + 14;
   }
+  const overflow = endLabels[endLabels.length - 1].y - (TOP + hP);
+  if (overflow > 0) endLabels.forEach(l => { l.y -= overflow; });
 
   const t = tip;
   const r = t != null && t > 0 ? rows[t - 1] : null;
@@ -315,11 +318,12 @@ function BenchmarkChart({ bench, lab, pc }) {
         <div className="chart-legend">
           <span className="legend-item"><span className="legend-chip bench-port"></span>Mi portafolio</span>
           <span className="legend-item"><span className="legend-chip bench-spx"></span>S&amp;P 500</span>
+          <span className="legend-item"><span className="legend-chip bench-cert"></span>{`Certificado ${bench.certRate}% anual`}</span>
         </div>
       </div>
 
       <div className="svg-chart-wrapper" ref={wrapRef} onMouseLeave={() => setTip(null)}>
-        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Rendimiento acumulado: portafolio ${pc(bench.cumPort)}, S&P 500 ${pc(bench.cumSpx)}`}>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Rendimiento acumulado: portafolio ${pc(bench.cumPort)}, S&P 500 ${pc(bench.cumSpx)}, certificado ${pc(bench.cumCert)}`}>
           {tk.ticks.map(v => (
             <g key={v}>
               <line className={v === 0 ? 'chart-zero' : 'chart-grid'} x1={L} x2={W - RP} y1={y(v)} y2={y(v)} />
@@ -330,17 +334,16 @@ function BenchmarkChart({ bench, lab, pc }) {
           {t != null && <line className="chart-guide" x1={x(t)} x2={x(t)} y1={TOP} y2={TOP + hP} />}
 
           <path className="bench-area" d={areaPath} />
+          <polyline className="bench-line-cert" points={pts(cert)} />
           <polyline className="bench-line-spx" points={pts(spx)} />
           <polyline className="bench-line-port" points={pts(port)} />
+          {t != null && <circle className="bench-dot-cert" cx={x(t)} cy={y(cert[t])} r={4} />}
           {spx.map((v, i) => <circle key={`s${i}`} className="bench-dot-spx" cx={x(i)} cy={y(v)} r={t === i ? 4.5 : 2.5} />)}
           {port.map((v, i) => <circle key={`p${i}`} className="bench-dot-port" cx={x(i)} cy={y(v)} r={t === i ? 5 : 3.5} />)}
 
-          {!compact && (
-            <>
-              <text className="bench-end-label port" x={x(n - 1) + 10} y={yP + 4}>{pc(port[n - 1])}</text>
-              <text className="bench-end-label spx" x={x(n - 1) + 10} y={yS + 4}>{pc(spx[n - 1])}</text>
-            </>
-          )}
+          {!compact && endLabels.map(l => (
+            <text key={l.k} className={`bench-end-label ${l.k}`} x={x(n - 1) + 10} y={l.y + 4}>{pc(l.v)}</text>
+          ))}
 
           {months.map((m, i) => (n - 1 - i) % labelEvery === 0 && (
             <text key={`lb${i}`} className="chart-xlabel" x={x(i)} y={H - 8} textAnchor={i === 0 ? 'start' : compact && i === n - 1 ? 'end' : 'middle'}>{lab(m)}</text>
@@ -367,6 +370,7 @@ function BenchmarkChart({ bench, lab, pc }) {
             {r && <div className="tooltip-row"><span>S&amp;P 500 en el mes</span><span className={r.spx >= 0 ? 'p' : 'n'}>{pc(r.spx)}</span></div>}
             <div className="tooltip-row"><span>Portafolio acumulado</span><span className={port[t] >= 0 ? 'p' : 'n'}>{pc(port[t])}</span></div>
             <div className="tooltip-row"><span>S&amp;P 500 acumulado</span><span className={spx[t] >= 0 ? 'p' : 'n'}>{pc(spx[t])}</span></div>
+            <div className="tooltip-row"><span>{`Certificado ${bench.certRate}% acum.`}</span><span className={cert[t] >= 0 ? 'p' : 'n'}>{pc(cert[t])}</span></div>
             {t > 0 && <div className="tooltip-row"><span>Diferencia</span><span className={port[t] - spx[t] >= 0 ? 'p' : 'n'}>{pts2(port[t] - spx[t])}</span></div>}
           </div>
         )}
@@ -1248,13 +1252,14 @@ function App() {
                     <b className={`kpi-val hero-val ${cls(bench.alpha)}`}>{`${Math.abs(bench.alpha).toFixed(2)} pts`}</b>
                     <span className="tag neutral">{`${pc(bench.cumPort)} vs ${pc(bench.cumSpx)}`}</span>
                   </div>
-                  <div className="hero-stats">
+                  <div className="hero-stats four">
                     <div className="hero-stat"><span>Mi portafolio</span><b className={cls(bench.cumPort)}>{pc(bench.cumPort)}</b></div>
                     <div className="hero-stat"><span>S&amp;P 500</span><b className={cls(bench.cumSpx)}>{pc(bench.cumSpx)}</b></div>
+                    <div className="hero-stat"><span>{`Certificado ${bench.certRate}%`}</span><b className={cls(bench.cumCert)}>{pc(bench.cumCert)}</b></div>
                     <div className="hero-stat"><span>Meses por encima</span><b>{`${bench.beat} de ${bench.rows.length}`}</b></div>
                   </div>
                   <p className="footnote">
-                    Rendimiento ponderado en el tiempo: se encadena el % de cada mes, así los depósitos no cuentan como ganancia. S&amp;P 500 = índice de precio (^GSPC, sin dividendos).
+                    Rendimiento ponderado en el tiempo: se encadena el % de cada mes, así los depósitos no cuentan como ganancia. S&amp;P 500 = índice de precio (^GSPC, sin dividendos). Certificado = tasa fija del {bench.certRate}% efectivo anual, capitalizada cada mes.
                   </p>
                 </div>
                 <div className="card kpi reveal" style={{ '--i': 1 }}>
@@ -1268,9 +1273,9 @@ function App() {
                   <span className={`tag ${cls(bench.edge)}`}>{`${sg(bench.edge)} ${bench.edge >= 0 ? 'a tu favor' : 'en contra'}`}</span>
                 </div>
                 <div className="card kpi reveal" style={{ '--i': 3 }}>
-                  <span className="kpi-label">S&amp;P 500</span>
-                  <b className="kpi-val">{bench.spxEnd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</b>
-                  <span className="kpi-meta">{`desde ${bench.spxStart.toLocaleString('en-US', { maximumFractionDigits: 2 })} en ${lab(bench.start)}`}</span>
+                  <span className="kpi-label">{`Mismo dinero en certificado ${bench.certRate}%`}</span>
+                  <b className="kpi-val">{f(bench.simCert)}</b>
+                  <span className={`tag ${cls(bench.edgeCert)}`}>{`${sg(bench.edgeCert)} ${bench.edgeCert >= 0 ? 'a tu favor' : 'en contra'}`}</span>
                 </div>
                 <div className="card kpi reveal" style={{ '--i': 4 }}>
                   <span className="kpi-label">Mejor mes vs índice</span>
@@ -1303,8 +1308,10 @@ function App() {
                           <th>Diferencia</th>
                           <th>Acum. portafolio</th>
                           <th>Acum. S&amp;P 500</th>
+                          <th>{`Acum. cert. ${bench.certRate}%`}</th>
                           <th>Valor real</th>
                           <th>Si fuera S&amp;P 500</th>
+                          <th>Si fuera certificado</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1316,8 +1323,10 @@ function App() {
                             <td className={`${cls(r.diff)} strong`}>{`${r.diff >= 0 ? '+' : ''}${r.diff.toFixed(2)} pts`}</td>
                             <td className={cls(r.cumPort)}>{pc(r.cumPort)}</td>
                             <td className={cls(r.cumSpx)}>{pc(r.cumSpx)}</td>
+                            <td className={cls(r.cumCert)}>{pc(r.cumCert)}</td>
                             <td>{f(r.v)}</td>
                             <td>{f(r.sim)}</td>
+                            <td>{f(r.simCert)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1325,7 +1334,7 @@ function App() {
                   </div>
                 </div>
                 <p className="note">
-                  «Si fuera S&amp;P 500» invierte en el índice el valor al inicio del periodo y cada depósito neto a mitad de mes. Puede diferir del % ponderado en el tiempo: ese pesa igual todos los meses, mientras el valor en dólares pesa más los meses con más dinero invertido.
+                  «Si fuera S&amp;P 500» y «Si fuera certificado» invierten el valor al inicio del periodo y cada depósito neto a mitad de mes en el índice o en el certificado. Puede diferir del % ponderado en el tiempo: ese pesa igual todos los meses, mientras el valor en dólares pesa más los meses con más dinero invertido.
                 </p>
               </div>
             </>

@@ -356,12 +356,18 @@
     return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`;
   };
 
+  // Certificado a tasa fija: 8% efectivo anual, capitalizado mes a mes
+  const CERT_RATE = 0.08;
+  const CERT_MONTHLY = Math.pow(1 + CERT_RATE, 1 / 12) - 1;
+
   function computeBenchmark(S) {
     if (!S || !S.length) return null;
     const startVal = S[0].v - S[0].pl - (S[0].d - S[0].w);
     let cp = 1;
     let cs = 1;
+    let cc = 1;
     let sim = startVal;
+    let simCert = startVal;
     const rows = [];
     for (const r of S) {
       const a = SPX[prevMonth(r.m)];
@@ -373,7 +379,12 @@
       cs *= 1 + sr;
       const fl = r.d - r.w;
       sim = sim * (1 + sr) + fl * Math.sqrt(1 + sr);
-      rows.push({ m: r.m, port: pr * 100, spx: sr * 100, diff: (pr - sr) * 100, cumPort: (cp - 1) * 100, cumSpx: (cs - 1) * 100, v: r.v, sim, spxClose: b });
+      cc *= 1 + CERT_MONTHLY;
+      simCert = simCert * (1 + CERT_MONTHLY) + fl * Math.sqrt(1 + CERT_MONTHLY);
+      rows.push({
+        m: r.m, port: pr * 100, spx: sr * 100, cert: CERT_MONTHLY * 100, diff: (pr - sr) * 100,
+        cumPort: (cp - 1) * 100, cumSpx: (cs - 1) * 100, cumCert: (cc - 1) * 100, v: r.v, sim, simCert, spxClose: b
+      });
     }
     if (!rows.length) return null;
     const last = rows[rows.length - 1];
@@ -383,6 +394,10 @@
       startVal,
       cumPort: last.cumPort,
       cumSpx: last.cumSpx,
+      cumCert: last.cumCert,
+      certRate: CERT_RATE * 100,
+      simCert: last.simCert,
+      edgeCert: last.v - last.simCert,
       alpha: last.cumPort - last.cumSpx,
       actual: last.v,
       sim: last.sim,
