@@ -59,6 +59,16 @@
     charges: [['2026-08-15', 2.00]]
   };
 
+  // Cierre mensual del S&P 500 (índice ^GSPC, solo precio, sin dividendos). Fuente: Yahoo Finance.
+  // Incluye el mes anterior al primer estado (2025-05) para medir el rendimiento de jun 2025.
+  const SPX = {
+    '2025-05': 5911.69, '2025-06': 6204.95, '2025-07': 6339.39, '2025-08': 6460.26,
+    '2025-09': 6688.46, '2025-10': 6840.20, '2025-11': 6849.09, '2025-12': 6845.50,
+    '2026-01': 6939.03, '2026-02': 6878.88, '2026-03': 6528.52, '2026-04': 7209.01,
+    '2026-05': 7580.06, '2026-06': 7499.36, '2026-07': 7489.72, '2026-08': 7686.14,
+    '2026-09': 7651.54, '2026-10': 7580.07
+  };
+
   // Nombres completos de los activos
   const N = {
     GOOGL: 'Alphabet',
@@ -334,6 +344,52 @@
       firstMonth: S[0].m,
       lastMonth: lastRow.m,
       monthsCount: S.length
+    };
+  }
+
+  // --- COMPARACIÓN CONTRA EL S&P 500 ---
+  // S = meses del periodo (filas de R). Portafolio: rendimiento ponderado en el tiempo (encadena pl/base de cada mes,
+  // así los depósitos no inflan el %). S&P 500: variación del cierre mensual. "Mismo dinero en el S&P 500" simula
+  // el valor al inicio del periodo y cada flujo neto (a mitad de mes, igual que Modified Dietz) invertidos en el índice.
+  const prevMonth = m => {
+    const [y, mo] = m.split('-').map(Number);
+    return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`;
+  };
+
+  function computeBenchmark(S) {
+    if (!S || !S.length) return null;
+    const startVal = S[0].v - S[0].pl - (S[0].d - S[0].w);
+    let cp = 1;
+    let cs = 1;
+    let sim = startVal;
+    const rows = [];
+    for (const r of S) {
+      const a = SPX[prevMonth(r.m)];
+      const b = SPX[r.m];
+      if (!(a > 0 && b > 0)) break; // sin cierre del índice para ese mes
+      const pr = r.base > 0 ? r.pl / r.base : 0;
+      const sr = b / a - 1;
+      cp *= 1 + pr;
+      cs *= 1 + sr;
+      const fl = r.d - r.w;
+      sim = sim * (1 + sr) + fl * Math.sqrt(1 + sr);
+      rows.push({ m: r.m, port: pr * 100, spx: sr * 100, diff: (pr - sr) * 100, cumPort: (cp - 1) * 100, cumSpx: (cs - 1) * 100, v: r.v, sim, spxClose: b });
+    }
+    if (!rows.length) return null;
+    const last = rows[rows.length - 1];
+    return {
+      rows,
+      start: prevMonth(rows[0].m),
+      startVal,
+      cumPort: last.cumPort,
+      cumSpx: last.cumSpx,
+      alpha: last.cumPort - last.cumSpx,
+      actual: last.v,
+      sim: last.sim,
+      edge: last.v - last.sim,
+      beat: rows.filter(r => r.diff > 0).length,
+      spxStart: SPX[prevMonth(rows[0].m)],
+      spxEnd: last.spxClose
     };
   }
 
@@ -747,6 +803,8 @@
     dt,
     computePortfolioData,
     getPeriodSummary,
+    computeBenchmark,
+    SPX,
     getYears,
     computeYearDashboard,
     computeMargin,

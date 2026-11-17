@@ -135,6 +135,16 @@ button, input { font-family: inherit; }
 .area-cum { fill: var(--cum); opacity: .1; }
 .line-cum { fill: none; stroke: var(--cum); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
 .dot-cum { fill: var(--cum); stroke: var(--surface); stroke-width: 2; }
+/* Portafolio vs S&P 500: el portafolio en acento, el índice como referencia neutra punteada */
+.legend-chip.bench-port { width: 14px; height: 2.5px; background: var(--accent); border-radius: 0; }
+.legend-chip.bench-spx { width: 14px; height: 0; border-top: 2px dashed var(--text-muted); border-radius: 0; }
+.bench-area { fill: var(--accent); opacity: .08; }
+.bench-line-port { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.bench-line-spx { fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-dasharray: 5 4; stroke-linejoin: round; }
+.bench-dot-port { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+.bench-dot-spx { fill: var(--text-muted); stroke: var(--surface); stroke-width: 1.5; }
+.bench-end-label { font-size: 12px; font-weight: 600; }
+.bench-end-label.port { fill: var(--accent); } .bench-end-label.spx { fill: var(--text-muted); }
 .deposit-dot { fill: none; stroke: var(--text-dim); stroke-width: 1.25; }
 .price-line { stroke: var(--text-main); stroke-width: 1.5; }
 .avg-line { stroke: var(--text-dim); stroke-width: 1.5; stroke-dasharray: 5 4; }

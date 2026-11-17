@@ -265,6 +265,116 @@ function InteractiveChart({ monthsData, f, lab }) {
   );
 }
 
+// --- COMPONENTE: PORTAFOLIO VS S&P 500 (rendimiento acumulado ponderado en el tiempo) ---
+function BenchmarkChart({ bench, lab, pc }) {
+  const [tip, setTip] = useState(null);
+  const [wrapRef, width] = useWidth();
+
+  useEffect(() => { setTip(null); }, [bench]);
+
+  const rows = bench.rows;
+  const n = rows.length + 1; // punto 0 = cierre del mes anterior al periodo (0%)
+  const W = Math.max(300, width || 900);
+  const compact = W < 560;
+  const L = compact ? 44 : 54;
+  const RP = compact ? 14 : 70;
+  const step = (W - L - RP) / Math.max(1, n - 1);
+  const TOP = 18;
+  const hP = compact ? 240 : 320;
+  const BOT = 26;
+  const H = TOP + hP + BOT;
+
+  const port = [0, ...rows.map(r => r.cumPort)];
+  const spx = [0, ...rows.map(r => r.cumSpx)];
+  const months = [bench.start, ...rows.map(r => r.m)];
+  const tk = niceTicks(Math.min(0, ...port, ...spx), Math.max(0, ...port, ...spx), compact ? 4 : 5);
+  const y = v => TOP + hP * (1 - (v - tk.min) / (tk.max - tk.min));
+  const x = i => L + step * i;
+  const pts = arr => arr.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+  const areaPath = `M${x(0)},${y(0)} ${port.map((v, i) => `L${x(i)},${y(v)}`).join(' ')} L${x(n - 1)},${y(0)} Z`;
+  const labelEvery = Math.max(1, Math.ceil(52 / step));
+  const pctAxis = v => `${v > 0 ? '+' : ''}${v}%`;
+
+  // Etiquetas finales sin solaparse
+  let yP = y(port[n - 1]);
+  let yS = y(spx[n - 1]);
+  if (Math.abs(yP - yS) < 14) {
+    const mid = (yP + yS) / 2;
+    if (yP <= yS) { yP = mid - 7; yS = mid + 7; } else { yP = mid + 7; yS = mid - 7; }
+  }
+
+  const t = tip;
+  const r = t != null && t > 0 ? rows[t - 1] : null;
+  const tipLeft = t != null && t > (n - 1) / 2;
+  const pts2 = v => `${v >= 0 ? '+' : ''}${v.toFixed(2)} pts`;
+
+  return (
+    <div className="card chart-card reveal">
+      <div className="card-head">
+        <h3 className="card-title">Rendimiento acumulado <span className="section-sub">{`base 0% al cierre de ${lab(bench.start)}`}</span></h3>
+        <div className="chart-legend">
+          <span className="legend-item"><span className="legend-chip bench-port"></span>Mi portafolio</span>
+          <span className="legend-item"><span className="legend-chip bench-spx"></span>S&amp;P 500</span>
+        </div>
+      </div>
+
+      <div className="svg-chart-wrapper" ref={wrapRef} onMouseLeave={() => setTip(null)}>
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Rendimiento acumulado: portafolio ${pc(bench.cumPort)}, S&P 500 ${pc(bench.cumSpx)}`}>
+          {tk.ticks.map(v => (
+            <g key={v}>
+              <line className={v === 0 ? 'chart-zero' : 'chart-grid'} x1={L} x2={W - RP} y1={y(v)} y2={y(v)} />
+              <text className="chart-axis" x={L - 8} y={y(v) + 4} textAnchor="end">{pctAxis(v)}</text>
+            </g>
+          ))}
+
+          {t != null && <line className="chart-guide" x1={x(t)} x2={x(t)} y1={TOP} y2={TOP + hP} />}
+
+          <path className="bench-area" d={areaPath} />
+          <polyline className="bench-line-spx" points={pts(spx)} />
+          <polyline className="bench-line-port" points={pts(port)} />
+          {spx.map((v, i) => <circle key={`s${i}`} className="bench-dot-spx" cx={x(i)} cy={y(v)} r={t === i ? 4.5 : 2.5} />)}
+          {port.map((v, i) => <circle key={`p${i}`} className="bench-dot-port" cx={x(i)} cy={y(v)} r={t === i ? 5 : 3.5} />)}
+
+          {!compact && (
+            <>
+              <text className="bench-end-label port" x={x(n - 1) + 10} y={yP + 4}>{pc(port[n - 1])}</text>
+              <text className="bench-end-label spx" x={x(n - 1) + 10} y={yS + 4}>{pc(spx[n - 1])}</text>
+            </>
+          )}
+
+          {months.map((m, i) => (n - 1 - i) % labelEvery === 0 && (
+            <text key={`lb${i}`} className="chart-xlabel" x={x(i)} y={H - 8} textAnchor={i === 0 ? 'start' : compact && i === n - 1 ? 'end' : 'middle'}>{lab(m)}</text>
+          ))}
+
+          {months.map((m, i) => (
+            <rect
+              key={`hit${i}`}
+              x={x(i) - step / 2}
+              y={TOP}
+              width={step}
+              height={hP}
+              fill="transparent"
+              onMouseMove={() => setTip(i)}
+              onClick={() => setTip(i)}
+            />
+          ))}
+        </svg>
+
+        {t != null && (
+          <div className={`chart-tooltip ${tipLeft ? 'left' : ''}`} style={{ left: x(t) + (tipLeft ? -14 : 14) }}>
+            <div className="tooltip-header">{t === 0 ? `Inicio · ${lab(months[0])}` : lab(r.m)}</div>
+            {r && <div className="tooltip-row"><span>Portafolio en el mes</span><span className={r.port >= 0 ? 'p' : 'n'}>{pc(r.port)}</span></div>}
+            {r && <div className="tooltip-row"><span>S&amp;P 500 en el mes</span><span className={r.spx >= 0 ? 'p' : 'n'}>{pc(r.spx)}</span></div>}
+            <div className="tooltip-row"><span>Portafolio acumulado</span><span className={port[t] >= 0 ? 'p' : 'n'}>{pc(port[t])}</span></div>
+            <div className="tooltip-row"><span>S&amp;P 500 acumulado</span><span className={spx[t] >= 0 ? 'p' : 'n'}>{pc(spx[t])}</span></div>
+            {t > 0 && <div className="tooltip-row"><span>Diferencia</span><span className={port[t] - spx[t] >= 0 ? 'p' : 'n'}>{pts2(port[t] - spx[t])}</span></div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- COMPONENTE: GRÁFICO CRYPTO (precio de entrada de cada lote vs precio actual y costo promedio) ---
 function CryptoLotsChart({ crypto, f, fd, pc }) {
   const [tip, setTip] = useState(null);
@@ -747,6 +857,7 @@ function App() {
     dt,
     computePortfolioData,
     getPeriodSummary,
+    computeBenchmark,
     getYears,
     computeYearDashboard,
     computeMargin,
@@ -813,13 +924,15 @@ function App() {
 
   // Título de la pestaña del navegador según la vista
   useEffect(() => {
-    document.title = `${{ bolsa: 'Bolsa', crypto: 'Crypto', total: 'Total', dashboard: 'Dashboard', impuestos: 'Impuestos', anual: 'Anual' }[activeTab]} · HAPI`;
+    document.title = `${{ bolsa: 'Bolsa', crypto: 'Crypto', total: 'Total', dashboard: 'Dashboard', impuestos: 'Impuestos', anual: 'Anual', sp500: 'SP500' }[activeTab]} · HAPI`;
   }, [activeTab]);
 
   // Cálculo del Período seleccionado
   const selectedMonths = useMemo(() => {
     return portfolioData.P[period] || portfolioData.R;
   }, [portfolioData, period]);
+
+  const bench = useMemo(() => computeBenchmark(selectedMonths), [selectedMonths]);
 
   const periodSummary = useMemo(() => {
     return getPeriodSummary(selectedMonths);
@@ -1068,6 +1181,8 @@ function App() {
                       ? `Dashboard · bolsa + crypto · ${dashYear} · USD`
                       : activeTab === 'anual'
                         ? 'Anual · bolsa + crypto · USD'
+                        : activeTab === 'sp500'
+                          ? 'SP500 · bolsa vs índice S&P 500 · USD'
                         : `Impuestos · estimación · ${taxYear} · USD`}
             </div>
           </div>
@@ -1100,9 +1215,124 @@ function App() {
         <button className={`tab-btn ${activeTab === 'anual' ? 'active' : ''}`} onClick={() => setActiveTab('anual')}>
           Anual <span className="tab-count">{years.length} años</span>
         </button>
+        <button className={`tab-btn ${activeTab === 'sp500' ? 'active' : ''}`} onClick={() => setActiveTab('sp500')}>
+          SP500 <span className="tab-count">vs portafolio</span>
+        </button>
       </nav>
 
       <main id="main">
+      {/* VISTA: PORTAFOLIO VS S&P 500 */}
+      {activeTab === 'sp500' && (
+        <section aria-label="SP500">
+          <div className="toolbar">
+            <div className="segmented" role="group" aria-label="Periodo">
+              {periodKeys.map(k => (
+                <button key={k} className={period === k ? 'active' : ''} onClick={() => setPeriod(k)}>{k}</button>
+              ))}
+            </div>
+            {bench && (
+              <div className="toolbar-note">
+                {`${lab(bench.rows[0].m)} – ${lab(bench.rows[bench.rows.length - 1].m)} · ${bench.rows.length} ${bench.rows.length > 1 ? 'meses' : 'mes'}`}
+              </div>
+            )}
+          </div>
+
+          {!bench ? (
+            <div className="card kpi"><p className="note">No hay cierres del S&amp;P 500 para este periodo.</p></div>
+          ) : (
+            <>
+              <div className="kpi-grid">
+                <div className="card kpi hero reveal" style={{ '--i': 0 }}>
+                  <span className="kpi-label">{bench.alpha >= 0 ? 'Le ganaste al S&P 500 por' : 'El S&P 500 te ganó por'}</span>
+                  <div className="hero-line">
+                    <b className={`kpi-val hero-val ${cls(bench.alpha)}`}>{`${Math.abs(bench.alpha).toFixed(2)} pts`}</b>
+                    <span className="tag neutral">{`${pc(bench.cumPort)} vs ${pc(bench.cumSpx)}`}</span>
+                  </div>
+                  <div className="hero-stats">
+                    <div className="hero-stat"><span>Mi portafolio</span><b className={cls(bench.cumPort)}>{pc(bench.cumPort)}</b></div>
+                    <div className="hero-stat"><span>S&amp;P 500</span><b className={cls(bench.cumSpx)}>{pc(bench.cumSpx)}</b></div>
+                    <div className="hero-stat"><span>Meses por encima</span><b>{`${bench.beat} de ${bench.rows.length}`}</b></div>
+                  </div>
+                  <p className="footnote">
+                    Rendimiento ponderado en el tiempo: se encadena el % de cada mes, así los depósitos no cuentan como ganancia. S&amp;P 500 = índice de precio (^GSPC, sin dividendos).
+                  </p>
+                </div>
+                <div className="card kpi reveal" style={{ '--i': 1 }}>
+                  <span className="kpi-label">Valor real al cierre</span>
+                  <b className="kpi-val">{f(bench.actual)}</b>
+                  <span className="kpi-meta">{`bolsa a ${lab(bench.rows[bench.rows.length - 1].m)}`}</span>
+                </div>
+                <div className="card kpi reveal" style={{ '--i': 2 }}>
+                  <span className="kpi-label">Mismo dinero en el S&amp;P 500</span>
+                  <b className="kpi-val">{f(bench.sim)}</b>
+                  <span className={`tag ${cls(bench.edge)}`}>{`${sg(bench.edge)} ${bench.edge >= 0 ? 'a tu favor' : 'en contra'}`}</span>
+                </div>
+                <div className="card kpi reveal" style={{ '--i': 3 }}>
+                  <span className="kpi-label">S&amp;P 500</span>
+                  <b className="kpi-val">{bench.spxEnd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</b>
+                  <span className="kpi-meta">{`desde ${bench.spxStart.toLocaleString('en-US', { maximumFractionDigits: 2 })} en ${lab(bench.start)}`}</span>
+                </div>
+                <div className="card kpi reveal" style={{ '--i': 4 }}>
+                  <span className="kpi-label">Mejor mes vs índice</span>
+                  {(() => {
+                    const best = bench.rows.reduce((a, b) => (b.diff > a.diff ? b : a));
+                    return (
+                      <>
+                        <b className={`kpi-val ${cls(best.diff)}`}>{`${best.diff >= 0 ? '+' : ''}${best.diff.toFixed(2)} pts`}</b>
+                        <span className="kpi-meta">{`${lab(best.m)} · ${pc(best.port)} vs ${pc(best.spx)}`}</span>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <BenchmarkChart bench={bench} lab={lab} pc={pc} />
+
+              <div className="section reveal">
+                <div className="section-header">
+                  <h2 className="section-title">Mes a mes <span className="section-sub">{`${bench.beat} de ${bench.rows.length} meses por encima del índice`}</span></h2>
+                </div>
+                <div className="card table-card">
+                  <div className="table-scroll">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Mes</th>
+                          <th>Portafolio</th>
+                          <th>S&amp;P 500</th>
+                          <th>Diferencia</th>
+                          <th>Acum. portafolio</th>
+                          <th>Acum. S&amp;P 500</th>
+                          <th>Valor real</th>
+                          <th>Si fuera S&amp;P 500</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bench.rows.slice().reverse().map(r => (
+                          <tr key={r.m}>
+                            <td className="strong">{lab(r.m)}</td>
+                            <td className={cls(r.port)}>{pc(r.port)}</td>
+                            <td className={cls(r.spx)}>{pc(r.spx)}</td>
+                            <td className={`${cls(r.diff)} strong`}>{`${r.diff >= 0 ? '+' : ''}${r.diff.toFixed(2)} pts`}</td>
+                            <td className={cls(r.cumPort)}>{pc(r.cumPort)}</td>
+                            <td className={cls(r.cumSpx)}>{pc(r.cumSpx)}</td>
+                            <td>{f(r.v)}</td>
+                            <td>{f(r.sim)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <p className="note">
+                  «Si fuera S&amp;P 500» invierte en el índice el valor al inicio del periodo y cada depósito neto a mitad de mes. Puede diferir del % ponderado en el tiempo: ese pesa igual todos los meses, mientras el valor en dólares pesa más los meses con más dinero invertido.
+                </p>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
       {/* VISTA 1: BOLSA */}
       {activeTab === 'bolsa' && (
         <section aria-label="Bolsa">

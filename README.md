@@ -80,3 +80,4 @@ Para registrar un nuevo mes o nuevas operaciones, abre **`MAESTRO.js`**:
 2. Añade las nuevas transacciones al string `T_RAW`: `YYMMDD,Tipo,Ticker,Cantidad,Monto;`.
 3. Actualiza los precios de mercado en el objeto `PR` para los activos en cartera.
 4. Si realizaste traspasos a Crypto, añade la fila en el arreglo `X`: `['YYYY-MM-DD', monto]`.
+5. Agrega el cierre mensual del S&P 500 (^GSPC) en el objeto `SPX`: `'YYYY-MM': cierre`. La pestaña **SP500** solo compara los meses que tienen cierre del índice.
