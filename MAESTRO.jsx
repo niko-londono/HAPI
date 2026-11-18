@@ -657,7 +657,7 @@ function Waterfall({ steps, f, sg }) {
 const LONG_TERM = new Set(['QQQ', 'GLD', 'VOO', 'VT', 'VGT', 'SMH', 'SCHD', 'SPY']);
 const TRADING = new Set(['TQQQ']); // ETF apalancado para operar, no para mantener
 const HORIZON_GROUPS = [['largo', 'Largo plazo'], ['corto', 'Corto plazo'], ['trading', 'Trading']];
-const HORIZON_TARGET = { largo: 35, corto: 50, trading: 15 }; // % ideal del patrimonio (corto = el resto)
+const HORIZON_TARGET = { largo: 40, corto: 45, trading: 15 }; // % ideal del patrimonio (corto = el resto)
 
 function HorizonChart({ holdings, total, f }) {
   // Ajustes propios sobre el reparto por defecto: { ticker: 'largo' | 'corto' | 'trading' }, guardados en este navegador.
@@ -1870,7 +1870,7 @@ function App() {
               <h2 className="section-title">Largo plazo, corto plazo y trading <span className="section-sub">ETF por defecto, ajustable · % del patrimonio de hoy</span></h2>
             </div>
             <HorizonChart holdings={total.holdings} total={totalWealth} f={f} />
-            <p className="note">Ideal: 35% largo plazo, 15% trading y el resto (50%) corto plazo; la raya de cada barra y el anillo fino marcan el ideal, y "faltan/sobran" es cuánto mover para llegar a él con el patrimonio de hoy. Por defecto, largo plazo agrupa los ETF (incluido GLD, el oro); trading, el TQQQ (ETF apalancado 3×); corto plazo, las acciones individuales, el BTC y el efectivo de la cuenta. Con el selector de cada activo lo pasas a otro grupo; tu elección se guarda en este navegador.</p>
+            <p className="note">Ideal: 40% largo plazo, 15% trading y el resto (45%) corto plazo; la raya de cada barra y el anillo fino marcan el ideal, y "faltan/sobran" es cuánto mover para llegar a él con el patrimonio de hoy. Por defecto, largo plazo agrupa los ETF (incluido GLD, el oro); trading, el TQQQ (ETF apalancado 3×); corto plazo, las acciones individuales, el BTC y el efectivo de la cuenta. Con el selector de cada activo lo pasas a otro grupo; tu elección se guarda en este navegador.</p>
           </div>
         </section>
       )}
