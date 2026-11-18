@@ -356,12 +356,13 @@
     return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`;
   };
 
-  // Certificado a tasa fija: 8% efectivo anual, capitalizado mes a mes
+  // Certificado a tasa fija (por defecto 8% efectivo anual), capitalizado mes a mes
   const CERT_RATE = 0.08;
-  const CERT_MONTHLY = Math.pow(1 + CERT_RATE, 1 / 12) - 1;
 
-  function computeBenchmark(S) {
+  function computeBenchmark(S, certRate) {
     if (!S || !S.length) return null;
+    const CERT_RATE_USED = Number.isFinite(certRate) ? certRate : CERT_RATE;
+    const CERT_MONTHLY = Math.pow(1 + CERT_RATE_USED, 1 / 12) - 1;
     const startVal = S[0].v - S[0].pl - (S[0].d - S[0].w);
     let cp = 1;
     let cs = 1;
@@ -395,7 +396,7 @@
       cumPort: last.cumPort,
       cumSpx: last.cumSpx,
       cumCert: last.cumCert,
-      certRate: CERT_RATE * 100,
+      certRate: +(CERT_RATE_USED * 100).toFixed(4),
       simCert: last.simCert,
       edgeCert: last.v - last.simCert,
       alpha: last.cumPort - last.cumSpx,

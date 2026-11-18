@@ -942,7 +942,16 @@ function App() {
     return portfolioData.P[period] || portfolioData.R;
   }, [portfolioData, period]);
 
-  const bench = useMemo(() => computeBenchmark(selectedMonths), [selectedMonths]);
+  // Tasa anual del certificado (editable en SP500, se guarda en este navegador)
+  const [certInput, setCertInput] = useState(() => {
+    try { const v = localStorage.getItem('hapi_cert_rate'); return v !== null ? v : '8'; } catch (e) { return '8'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('hapi_cert_rate', certInput); } catch (e) {}
+  }, [certInput]);
+  const certPct = parseFloat(String(certInput).replace(',', '.'));
+  const certValid = Number.isFinite(certPct) && certPct >= -50 && certPct <= 100;
+  const bench = useMemo(() => computeBenchmark(selectedMonths, certValid ? certPct / 100 : 0.08), [selectedMonths, certValid, certPct]);
 
   const periodSummary = useMemo(() => {
     return getPeriodSummary(selectedMonths);
@@ -1240,6 +1249,22 @@ function App() {
                 <button key={k} className={period === k ? 'active' : ''} onClick={() => setPeriod(k)}>{k}</button>
               ))}
             </div>
+            <label className="rate-input">
+              <span>Certificado</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min="-50"
+                max="100"
+                step="0.25"
+                placeholder="8"
+                value={certInput}
+                aria-label="Tasa anual del certificado"
+                aria-invalid={certInput !== '' && !certValid}
+                onChange={e => setCertInput(e.target.value)}
+              />
+              <em>%</em>
+            </label>
             {bench && (
               <div className="toolbar-note">
                 {`${lab(bench.rows[0].m)} – ${lab(bench.rows[bench.rows.length - 1].m)} · ${bench.rows.length} ${bench.rows.length > 1 ? 'meses' : 'mes'}`}
@@ -1265,7 +1290,7 @@ function App() {
                     <div className="hero-stat"><span>Meses por encima</span><b>{`${bench.beat} de ${bench.rows.length}`}</b></div>
                   </div>
                   <p className="footnote">
-                    Rendimiento ponderado en el tiempo: se encadena el % de cada mes, así los depósitos no cuentan como ganancia. S&amp;P 500 = índice de precio (^GSPC, sin dividendos). Certificado = tasa fija del {bench.certRate}% efectivo anual, capitalizada cada mes.
+                    Rendimiento ponderado en el tiempo: se encadena el % de cada mes, así los depósitos no cuentan como ganancia. S&amp;P 500 = índice de precio (^GSPC, sin dividendos). Certificado = tasa fija del {bench.certRate}% efectivo anual, capitalizada cada mes; cámbiala en el campo «Certificado» de arriba para ver otros escenarios.
                   </p>
                 </div>
                 <div className="card kpi reveal" style={{ '--i': 1 }}>
