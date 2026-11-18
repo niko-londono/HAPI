@@ -316,14 +316,17 @@ function BenchmarkChart({ bench, lab, pc }) {
   const r = t != null && t > 0 ? rows[t - 1] : null;
   const tipLeft = t != null && t > (n - 1) / 2;
   const pts2 = v => `${v >= 0 ? '+' : ''}${v.toFixed(2)} pts`;
+  // Rendimiento anual promedio: el acumulado del periodo llevado a 12 meses (compuesto)
+  const ann = v => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`;
+  const annTip = `Rendimiento anual promedio (compuesto) en ${bench.rows.length} ${bench.rows.length > 1 ? 'meses' : 'mes'}`;
 
   return (
     <div className="card chart-card reveal">
       <div className="card-head">
         <h3 className="card-title">Rendimiento acumulado <span className="section-sub">{`base 0% al cierre de ${lab(bench.start)}`}</span></h3>
         <div className="chart-legend">
-          <span className="legend-item"><span className="legend-chip bench-port"></span>Mi portafolio</span>
-          <span className="legend-item"><span className="legend-chip bench-spx"></span>S&amp;P 500</span>
+          <span className="legend-item" title={annTip}><span className="legend-chip bench-port"></span>{`Mi portafolio ${ann(bench.annPort)} anual`}</span>
+          <span className="legend-item" title={annTip}><span className="legend-chip bench-spx"></span>{`S&P 500 ${ann(bench.annSpx)} anual`}</span>
           <span className="legend-item"><span className="legend-chip bench-cert"></span>{`Certificado ${bench.certRate}% anual`}</span>
         </div>
       </div>

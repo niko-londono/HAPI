@@ -389,8 +389,12 @@
     }
     if (!rows.length) return null;
     const last = rows[rows.length - 1];
+    // Rendimiento anual promedio (compuesto) según los meses del periodo
+    const annualize = cum => (Math.pow(1 + cum / 100, 12 / rows.length) - 1) * 100;
     return {
       rows,
+      annPort: annualize(last.cumPort),
+      annSpx: annualize(last.cumSpx),
       start: prevMonth(rows[0].m),
       startVal,
       cumPort: last.cumPort,
