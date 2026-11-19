@@ -143,6 +143,7 @@ button, input { font-family: inherit; }
 .bench-line-spx { fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-dasharray: 5 4; stroke-linejoin: round; }
 .bench-dot-port { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 .bench-dot-spx { fill: var(--text-muted); stroke: var(--surface); stroke-width: 1.5; }
+.bench-span { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .bench-end-label { font-size: 12px; font-weight: 600; }
 .bench-end-label.compact { font-size: 10.5px; }
 .bench-end-label.port { fill: var(--accent); } .bench-end-label.spx { fill: var(--text-muted); }

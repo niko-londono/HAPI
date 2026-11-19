@@ -266,7 +266,16 @@ function InteractiveChart({ monthsData, f, lab }) {
 }
 
 // --- COMPONENTE: PORTAFOLIO VS S&P 500 (rendimiento acumulado ponderado en el tiempo) ---
-function BenchmarkChart({ bench, lab, pc }) {
+// "1 año 5 meses", "8 meses", "2 años"
+const spanText = months => {
+  const y = Math.floor(months / 12), m = months % 12;
+  const parts = [];
+  if (y) parts.push(`${y} ${y > 1 ? 'años' : 'año'}`);
+  if (m || !y) parts.push(`${m} ${m === 1 ? 'mes' : 'meses'}`);
+  return parts.join(' ');
+};
+
+function BenchmarkChart({ bench, lab, pc, showSpan }) {
   const [tip, setTip] = useState(null);
   const [wrapRef, width] = useWidth();
 
@@ -323,7 +332,7 @@ function BenchmarkChart({ bench, lab, pc }) {
   return (
     <div className="card chart-card reveal">
       <div className="card-head">
-        <h3 className="card-title">Rendimiento acumulado <span className="section-sub">{`base 0% al cierre de ${lab(bench.start)}`}</span></h3>
+        <h3 className="card-title">Rendimiento acumulado {showSpan && <span className="bench-span">{spanText(bench.rows.length)}</span>} <span className="section-sub">{`base 0% al cierre de ${lab(bench.start)}`}</span></h3>
         <div className="chart-legend">
           <span className="legend-item" title={annTip}><span className="legend-chip bench-port"></span>{`Mi portafolio ${ann(bench.annPort)} anual`}</span>
           <span className="legend-item" title={annTip}><span className="legend-chip bench-spx"></span>{`S&P 500 ${ann(bench.annSpx)} anual`}</span>
@@ -1325,7 +1334,7 @@ function App() {
                 </div>
               </div>
 
-              <BenchmarkChart bench={bench} lab={lab} pc={pc} />
+              <BenchmarkChart bench={bench} lab={lab} pc={pc} showSpan={period === 'ALL'} />
 
               <div className="section reveal">
                 <div className="section-header">
